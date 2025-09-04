@@ -1,0 +1,209 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Student {
+    id            Int       @id @default(autoincrement())
+    digitalId     Int       @unique
+    timetable     Json
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    studentGroupMemberships StudentGroupMembership[]
+    courseEnrollments      CourseStudentEnrollment[]
+}
+
+model StudentGroup {
+    id            Int       @id @default(autoincrement())
+    groupName     String    @unique
+    timetable     Json
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    studentMemberships     StudentGroupMembership[]
+    courseGroupEnrollments CourseStudentGroupEnrollment[]
+}
+
+model StudentGroupMembership {
+    id             Int          @id @default(autoincrement())
+    studentId      Int
+    studentGroupId Int
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+    studentGroup   StudentGroup @relation(fields: [studentGroupId], references: [id], onDelete: Cascade)
+
+    @@unique([studentId, studentGroupId])
+}
+
+model Faculty {
+    id            Int       @id @default(autoincrement())
+    name          String
+    shortForm     String?
+    timetable     Json
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    facultyGroupMemberships FacultyGroupMembership[]
+    coursesTaught          Course[]                 @relation("CompulsoryFaculty")
+}
+
+model FacultyGroup {
+    id            Int       @id @default(autoincrement())
+    groupName     String    @unique
+    timetable     Json
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    facultyMemberships      FacultyGroupMembership[]
+    compulsoryCourses       CompulsoryFacultyGroup[]
+}
+
+model FacultyGroupMembership {
+    id             Int          @id @default(autoincrement())
+    facultyId      Int
+    facultyGroupId Int
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    faculty        Faculty      @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+    facultyGroup   FacultyGroup @relation(fields: [facultyGroupId], references: [id], onDelete: Cascade)
+
+    @@unique([facultyId, facultyGroupId])
+}
+
+model Hall {
+    id            Int       @id @default(autoincrement())
+    name          String
+    shortForm     String?
+    timetable     Json
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    hallGroupMemberships HallGroupMembership[]
+    coursesTaught        Course[]             @relation("CompulsoryHalls")
+}
+
+model HallGroup {
+    id            Int       @id @default(autoincrement())
+    groupName     String    @unique
+    timetable     Json
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+
+    hallMemberships       HallGroupMembership[]
+    compulsoryCourses     CompulsoryHallGroup[]
+}
+
+model HallGroupMembership {
+    id          Int       @id @default(autoincrement())
+    hallId      Int
+    hallGroupId Int
+    createdAt   DateTime  @default(now())
+    updatedAt   DateTime  @updatedAt
+
+    hall        Hall      @relation(fields: [hallId], references: [id], onDelete: Cascade)
+    hallGroup   HallGroup @relation(fields: [hallGroupId], references: [id], onDelete: Cascade)
+
+    @@unique([hallId, hallGroupId])
+}
+
+model Course {
+    id                      Int                   @id @default(autoincrement())
+    name                    String
+    code                    String                @unique
+    createdAt               DateTime              @default(now())
+    updatedAt               DateTime              @updatedAt
+    
+    compulsoryFaculties     Faculty[]             @relation("CompulsoryFaculty")
+    compulsoryHalls         Hall[]                @relation("CompulsoryHalls")
+
+    compulsoryFacultyGroups CompulsoryFacultyGroup[]
+    compulsoryHallGroups    CompulsoryHallGroup[]
+
+    studentEnrollments      CourseStudentEnrollment[]
+    studentGroupEnrollments CourseStudentGroupEnrollment[]
+
+    timetable               Json
+}
+
+model CompulsoryFacultyGroup {
+    id             Int          @id @default(autoincrement())
+    courseId       Int
+    facultyGroupId Int
+    requiredCount  Int
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+    
+    course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    facultyGroup   FacultyGroup @relation(fields: [facultyGroupId], references: [id], onDelete: Cascade)
+
+    @@unique([courseId, facultyGroupId])
+}
+
+model CompulsoryHallGroup {
+    id            Int       @id @default(autoincrement())
+    courseId      Int
+    hallGroupId   Int
+    requiredCount Int
+    createdAt     DateTime  @default(now())
+    updatedAt     DateTime  @updatedAt
+    
+    course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    hallGroup     HallGroup @relation(fields: [hallGroupId], references: [id], onDelete: Cascade)
+
+    @@unique([courseId, hallGroupId])
+}
+
+model CourseStudentEnrollment {
+    id        Int      @id @default(autoincrement())
+    courseId  Int
+    studentId Int
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+    @@unique([courseId, studentId])
+}
+
+model CourseStudentGroupEnrollment {
+    id             Int          @id @default(autoincrement())
+    courseId       Int
+    studentGroupId Int
+    createdAt      DateTime     @default(now())
+    updatedAt      DateTime     @updatedAt
+
+    course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
+    studentGroup   StudentGroup @relation(fields: [studentGroupId], references: [id], onDelete: Cascade)
+
+    @@unique([courseId, studentGroupId])
+}
+
+// Timetable Models
+
+// {
+//    "Monday": [
+//       ["09:00", "10:00", "CS101"],
+//       ["14:00", "15:00", "MATH202"]
+//    ],
+//    "Tuesday": [
+//       ["10:30", "11:30", "CHEM301"],
+//       ["13:00", "14:00", "PHYS201"]
+//    ],
+//    "Wednesday": [
+//       ["09:00", "10:00", "CS101"],
+//       ["14:00", "15:00", "MATH202"]
+//    ],
+//    "Thursday": [],
+//    "Friday": [
+//       ["09:00", "10:00", "CS101"]
+//    ]
+// }
