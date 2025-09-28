@@ -37,29 +37,29 @@
     - Add session switching with data context updates
     - _Requirements: 2.1, 2.4, 5.4_
 
-- [ ] 4. Implement core entity CRUD operations
-  - [ ] 4.1 Create student management system
+- [x] 4. Implement core entity CRUD operations
+  - [x] 4.1 Create student management system
     - Build student creation form with digitalId validation
     - Implement student list view with search and pagination
     - Create student edit/update functionality
     - Add student deletion with confirmation
     - _Requirements: 5.2, 5.5, 6.2_
 
-  - [ ] 4.2 Create faculty management system
+  - [x] 4.2 Create faculty management system
     - Build faculty creation form with name and shortForm fields
     - Implement faculty list view with search and filtering
     - Create faculty edit/update functionality
     - Add faculty deletion with relationship checks
     - _Requirements: 5.2, 5.5, 6.2_
 
-  - [ ] 4.3 Create hall management system
+  - [x] 4.3 Create hall management system
     - Build hall creation form with name, floor, building, and shortForm
     - Implement hall list view with building/floor filtering
     - Create hall edit/update functionality
     - Add hall deletion with usage validation
     - _Requirements: 5.2, 5.5, 6.2_
 
-  - [ ] 4.4 Create course management system
+  - [x] 4.4 Create course management system
     - Build course creation form with name, code, and scheduling parameters
     - Implement course list view with code-based search
     - Create course edit functionality with scheduling requirements

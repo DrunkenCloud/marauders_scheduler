@@ -2,6 +2,10 @@
 
 import { EntityType } from '@/types'
 import { useSession } from '@/contexts/SessionContext'
+import StudentManagement from './StudentManagement'
+import FacultyManagement from './FacultyManagement'
+import HallManagement from './HallManagement'
+import CourseManagement from './CourseManagement'
 
 interface EntityContentProps {
   entityType: EntityType | null
@@ -122,6 +126,26 @@ export default function EntityContent({ entityType }: EntityContentProps) {
   }
 
   const info = entityInfo[entityType]
+
+  // Return specific management component for students
+  if (entityType === EntityType.STUDENT) {
+    return <StudentManagement />
+  }
+
+  // Return specific management component for faculty
+  if (entityType === EntityType.FACULTY) {
+    return <FacultyManagement />
+  }
+
+  // Return specific management component for halls
+  if (entityType === EntityType.HALL) {
+    return <HallManagement />
+  }
+
+  // Return specific management component for courses
+  if (entityType === EntityType.COURSE) {
+    return <CourseManagement />
+  }
 
   return (
     <div className="flex-1 p-6 bg-gray-50">
