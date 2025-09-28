@@ -1,0 +1,47 @@
+{
+  "name": "marauders_scheduler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "pnpmx prisma generate",
+    "db:push": "pnpmx prisma db push",
+    "db:migrate": "pnpmx prisma migrate dev",
+    "db:studio": "pnpmx prisma studio"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrunkenCloud/marauders_scheduler.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DrunkenCloud/marauders_scheduler/issues"
+  },
+  "homepage": "https://github.com/DrunkenCloud/marauders_scheduler#readme",
+  "dependencies": {
+    "@prisma/client": "^6.16.2",
+    "next": "^15.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.13",
+    "@types/node": "^24.5.2",
+    "@types/react": "^19.1.15",
+    "@types/react-dom": "^19.1.9",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.36.0",
+    "eslint-config-next": "^15.5.4",
+    "postcss": "^8.5.6",
+    "prisma": "^6.16.2",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2"
+  }
+}

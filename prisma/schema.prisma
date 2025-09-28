@@ -11,6 +11,8 @@ model Session {
   id        Int       @id @default(autoincrement())
   name      String    @unique       // e.g., "Spring 2025", "Fall 2025"
   details   String?                   // optional description
+  startTime String    @default("08:10")  // session start time
+  endTime   String    @default("15:30")  // session end time
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -149,6 +151,9 @@ model Course {
   name                    String
   code                    String                @unique
   timetable               Json
+  classDuration           Int                   @default(50)        // minutes per session
+  sessionsPerLecture      Int                   @default(1)         // consecutive sessions needed
+  totalSessions           Int                   @default(3)         // total sessions per week
   sessionId               Int
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
