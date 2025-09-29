@@ -3,11 +3,16 @@
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
 import { ApiResponse } from '@/types'
+import TimingFields from './TimingFields'
 
 interface Student {
   id: number
   digitalId: number
   timetable: any
+  startHour: number
+  startMinute: number
+  endHour: number
+  endMinute: number
   createdAt: string
   updatedAt: string
   session: {
@@ -31,6 +36,10 @@ interface StudentFormProps {
 export default function StudentForm({ student, onSave, onCancel }: StudentFormProps) {
   const { currentSession } = useSession()
   const [digitalId, setDigitalId] = useState('')
+  const [startHour, setStartHour] = useState(8)
+  const [startMinute, setStartMinute] = useState(10)
+  const [endHour, setEndHour] = useState(15)
+  const [endMinute, setEndMinute] = useState(30)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,8 +48,16 @@ export default function StudentForm({ student, onSave, onCancel }: StudentFormPr
   useEffect(() => {
     if (student) {
       setDigitalId(student.digitalId.toString())
+      setStartHour(student.startHour)
+      setStartMinute(student.startMinute)
+      setEndHour(student.endHour)
+      setEndMinute(student.endMinute)
     } else {
       setDigitalId('')
+      setStartHour(8)
+      setStartMinute(10)
+      setEndHour(15)
+      setEndMinute(30)
     }
     setError(null)
   }, [student])
@@ -72,7 +89,11 @@ export default function StudentForm({ student, onSave, onCancel }: StudentFormPr
       const method = isEditing ? 'PUT' : 'POST'
       
       const body: any = {
-        digitalId: digitalIdNum
+        digitalId: digitalIdNum,
+        startHour,
+        startMinute,
+        endHour,
+        endMinute
       }
 
       if (!isEditing) {
@@ -149,13 +170,26 @@ export default function StudentForm({ student, onSave, onCancel }: StudentFormPr
           </p>
         </div>
 
+        {/* Working Hours */}
+        <TimingFields
+          startHour={startHour}
+          startMinute={startMinute}
+          endHour={endHour}
+          endMinute={endMinute}
+          onStartHourChange={setStartHour}
+          onStartMinuteChange={setStartMinute}
+          onEndHourChange={setEndHour}
+          onEndMinuteChange={setEndMinute}
+          title="Working Hours"
+          description="Set the student's working day hours. This determines when they can be scheduled for classes."
+        />
+
         {/* Session Info (for new students) */}
         {!isEditing && currentSession && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="text-sm font-medium text-blue-900 mb-2">Session Information</h4>
             <div className="text-sm text-blue-800">
               <p><strong>Session:</strong> {currentSession.name}</p>
-              <p><strong>Time Range:</strong> {currentSession.startTime} - {currentSession.endTime}</p>
               {currentSession.details && (
                 <p><strong>Description:</strong> {currentSession.details}</p>
               )}

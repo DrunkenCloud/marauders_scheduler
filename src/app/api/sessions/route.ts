@@ -33,7 +33,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, details, startTime = '08:10', endTime = '15:30' } = body
+    const { name, details } = body
 
     if (!name) {
       const response: ApiResponse = {
@@ -50,9 +50,7 @@ export async function POST(request: NextRequest) {
     const session = await prisma.session.create({
       data: {
         name,
-        details,
-        startTime,
-        endTime
+        details
       }
     })
 

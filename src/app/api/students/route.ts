@@ -83,7 +83,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { digitalId, sessionId, timetable = {} } = body
+    const { 
+      digitalId, 
+      sessionId, 
+      timetable = {},
+      startHour = 8,
+      startMinute = 10,
+      endHour = 15,
+      endMinute = 30
+    } = body
 
     if (!digitalId || !sessionId) {
       const response: ApiResponse = {
@@ -110,6 +118,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 })
     }
 
+    // Validate timing fields
+    if (startHour < 0 || startHour > 23 || endHour < 0 || endHour > 23) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Hours must be between 0 and 23',
+          timestamp: new Date()
+        }
+      }
+      return NextResponse.json(response, { status: 400 })
+    }
+
+    if (startMinute < 0 || startMinute > 59 || endMinute < 0 || endMinute > 59) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Minutes must be between 0 and 59',
+          timestamp: new Date()
+        }
+      }
+      return NextResponse.json(response, { status: 400 })
+    }
+
     // Initialize empty timetable if not provided
     const defaultTimetable = {
       Monday: [],
@@ -125,7 +158,11 @@ export async function POST(request: NextRequest) {
       data: {
         digitalId: parseInt(digitalId),
         sessionId: parseInt(sessionId),
-        timetable: timetable || defaultTimetable
+        timetable: timetable || defaultTimetable,
+        startHour: parseInt(startHour),
+        startMinute: parseInt(startMinute),
+        endHour: parseInt(endHour),
+        endMinute: parseInt(endMinute)
       },
       include: {
         session: true,

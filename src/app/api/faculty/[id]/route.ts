@@ -81,7 +81,7 @@ export async function PUT(
   try {
     const id = parseInt(params.id)
     const body = await request.json()
-    const { name, shortForm, timetable } = body
+    const { name, shortForm, timetable, startHour, startMinute, endHour, endMinute } = body
     
     if (isNaN(id)) {
       const response: ApiResponse = {
@@ -115,6 +115,64 @@ export async function PUT(
     }
     if (timetable !== undefined) {
       updateData.timetable = timetable
+    }
+
+    // Validate and update timing fields if provided
+    if (startHour !== undefined) {
+      if (startHour < 0 || startHour > 23) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Start hour must be between 0 and 23',
+            timestamp: new Date()
+          }
+        }
+        return NextResponse.json(response, { status: 400 })
+      }
+      updateData.startHour = parseInt(startHour)
+    }
+    if (startMinute !== undefined) {
+      if (startMinute < 0 || startMinute > 59) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'Start minute must be between 0 and 59',
+            timestamp: new Date()
+          }
+        }
+        return NextResponse.json(response, { status: 400 })
+      }
+      updateData.startMinute = parseInt(startMinute)
+    }
+    if (endHour !== undefined) {
+      if (endHour < 0 || endHour > 23) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'End hour must be between 0 and 23',
+            timestamp: new Date()
+          }
+        }
+        return NextResponse.json(response, { status: 400 })
+      }
+      updateData.endHour = parseInt(endHour)
+    }
+    if (endMinute !== undefined) {
+      if (endMinute < 0 || endMinute > 59) {
+        const response: ApiResponse = {
+          success: false,
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'End minute must be between 0 and 59',
+            timestamp: new Date()
+          }
+        }
+        return NextResponse.json(response, { status: 400 })
+      }
+      updateData.endMinute = parseInt(endMinute)
     }
 
     const faculty = await prisma.faculty.update({

@@ -79,7 +79,7 @@ export async function PUT(
   try {
     const id = parseInt(params.id)
     const body = await request.json()
-    const { digitalId, timetable } = body
+    const { digitalId, timetable, startHour, startMinute, endHour, endMinute } = body
     
     if (isNaN(id)) {
       const response: ApiResponse = {
@@ -106,12 +106,73 @@ export async function PUT(
       return NextResponse.json(response, { status: 400 })
     }
 
+    // Validate timing fields if provided
+    if (startHour !== undefined && (startHour < 0 || startHour > 23)) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Start hour must be between 0 and 23',
+          timestamp: new Date()
+        }
+      }
+      return NextResponse.json(response, { status: 400 })
+    }
+
+    if (endHour !== undefined && (endHour < 0 || endHour > 23)) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'End hour must be between 0 and 23',
+          timestamp: new Date()
+        }
+      }
+      return NextResponse.json(response, { status: 400 })
+    }
+
+    if (startMinute !== undefined && (startMinute < 0 || startMinute > 59)) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Start minute must be between 0 and 59',
+          timestamp: new Date()
+        }
+      }
+      return NextResponse.json(response, { status: 400 })
+    }
+
+    if (endMinute !== undefined && (endMinute < 0 || endMinute > 59)) {
+      const response: ApiResponse = {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'End minute must be between 0 and 59',
+          timestamp: new Date()
+        }
+      }
+      return NextResponse.json(response, { status: 400 })
+    }
+
     const updateData: any = {}
     if (digitalId !== undefined) {
       updateData.digitalId = parseInt(digitalId)
     }
     if (timetable !== undefined) {
       updateData.timetable = timetable
+    }
+    if (startHour !== undefined) {
+      updateData.startHour = parseInt(startHour)
+    }
+    if (startMinute !== undefined) {
+      updateData.startMinute = parseInt(startMinute)
+    }
+    if (endHour !== undefined) {
+      updateData.endHour = parseInt(endHour)
+    }
+    if (endMinute !== undefined) {
+      updateData.endMinute = parseInt(endMinute)
     }
 
     const student = await prisma.student.update({

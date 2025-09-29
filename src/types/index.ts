@@ -50,10 +50,16 @@ export interface SessionConfig {
   id: number
   name: string
   details?: string
-  startTime: string    // "08:10"
-  endTime: string      // "15:30"
   createdAt: Date
   updatedAt: Date
+}
+
+// Entity Timing Types
+export interface EntityTiming {
+  startHour: number    // 0-23
+  startMinute: number  // 0-59
+  endHour: number      // 0-23
+  endMinute: number    // 0-59
 }
 
 export interface SessionTiming {

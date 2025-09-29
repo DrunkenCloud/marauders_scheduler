@@ -66,7 +66,7 @@ export async function PUT(
   try {
     const sessionId = parseInt(params.id)
     const body = await request.json()
-    const { name, details, startTime, endTime } = body
+    const { name, details } = body
 
     if (isNaN(sessionId)) {
       const response: ApiResponse = {
@@ -84,9 +84,7 @@ export async function PUT(
       where: { id: sessionId },
       data: {
         ...(name && { name }),
-        ...(details !== undefined && { details }),
-        ...(startTime && { startTime }),
-        ...(endTime && { endTime })
+        ...(details !== undefined && { details })
       }
     })
 

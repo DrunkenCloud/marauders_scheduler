@@ -11,8 +11,6 @@ model Session {
   id        Int       @id @default(autoincrement())
   name      String    @unique       // e.g., "Spring 2025", "Fall 2025"
   details   String?                   // optional description
-  startTime String    @default("08:10")  // session start time
-  endTime   String    @default("15:30")  // session end time
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -29,6 +27,10 @@ model Student {
   id            Int       @id @default(autoincrement())
   digitalId     Int       @unique
   timetable     Json
+  startHour     Int       @default(8)   // working day start hour (0-23)
+  startMinute   Int       @default(10)  // working day start minute (0-59)
+  endHour       Int       @default(15)  // working day end hour (0-23)
+  endMinute     Int       @default(30)  // working day end minute (0-59)
   sessionId     Int
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -42,6 +44,10 @@ model StudentGroup {
   id            Int       @id @default(autoincrement())
   groupName     String    @unique
   timetable     Json
+  startHour     Int       @default(8)   // working day start hour (0-23)
+  startMinute   Int       @default(10)  // working day start minute (0-59)
+  endHour       Int       @default(15)  // working day end hour (0-23)
+  endMinute     Int       @default(30)  // working day end minute (0-59)
   sessionId     Int
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -69,6 +75,10 @@ model Faculty {
   name          String
   shortForm     String?
   timetable     Json
+  startHour     Int       @default(8)   // working day start hour (0-23)
+  startMinute   Int       @default(10)  // working day start minute (0-59)
+  endHour       Int       @default(17)  // working day end hour (0-23) - faculty can work later
+  endMinute     Int       @default(0)   // working day end minute (0-59)
   sessionId     Int
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -82,6 +92,10 @@ model FacultyGroup {
   id            Int       @id @default(autoincrement())
   groupName     String    @unique
   timetable     Json
+  startHour     Int       @default(8)   // working day start hour (0-23)
+  startMinute   Int       @default(10)  // working day start minute (0-59)
+  endHour       Int       @default(17)  // working day end hour (0-23) - faculty can work later
+  endMinute     Int       @default(0)   // working day end minute (0-59)
   sessionId     Int
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -111,6 +125,10 @@ model Hall {
   Building      String
   shortForm     String?
   timetable     Json
+  startHour     Int       @default(8)   // availability start hour (0-23)
+  startMinute   Int       @default(10)  // availability start minute (0-59)
+  endHour       Int       @default(20)  // availability end hour (0-23) - halls can be used later
+  endMinute     Int       @default(0)   // availability end minute (0-59)
   sessionId     Int
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -124,6 +142,10 @@ model HallGroup {
   id            Int       @id @default(autoincrement())
   groupName     String    @unique
   timetable     Json
+  startHour     Int       @default(8)   // availability start hour (0-23)
+  startMinute   Int       @default(10)  // availability start minute (0-59)
+  endHour       Int       @default(20)  // availability end hour (0-23) - halls can be used later
+  endMinute     Int       @default(0)   // availability end minute (0-59)
   sessionId     Int
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

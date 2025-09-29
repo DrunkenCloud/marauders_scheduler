@@ -15,9 +15,7 @@ export default function SessionModal({ isOpen, onClose, session, mode }: Session
   const { createSession, updateSession } = useSession()
   const [formData, setFormData] = useState({
     name: '',
-    details: '',
-    startTime: '08:10',
-    endTime: '15:30'
+    details: ''
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -27,16 +25,12 @@ export default function SessionModal({ isOpen, onClose, session, mode }: Session
       if (mode === 'edit' && session) {
         setFormData({
           name: session.name,
-          details: session.details || '',
-          startTime: session.startTime,
-          endTime: session.endTime
+          details: session.details || ''
         })
       } else {
         setFormData({
           name: '',
-          details: '',
-          startTime: '08:10',
-          endTime: '15:30'
+          details: ''
         })
       }
       setError(null)
@@ -132,36 +126,12 @@ export default function SessionModal({ isOpen, onClose, session, mode }: Session
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Time *
-                </label>
-                <input
-                  type="time"
-                  id="startTime"
-                  name="startTime"
-                  value={formData.startTime}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="endTime" className="block text-sm font-medium text-gray-700 mb-1">
-                  End Time *
-                </label>
-                <input
-                  type="time"
-                  id="endTime"
-                  name="endTime"
-                  value={formData.endTime}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="text-sm font-medium text-blue-900 mb-2">Working Hours</h4>
+              <p className="text-sm text-blue-800">
+                Individual entities (students, faculty, halls) now have their own working hours. 
+                You can set specific timing for each entity when creating or editing them.
+              </p>
             </div>
           </div>
 

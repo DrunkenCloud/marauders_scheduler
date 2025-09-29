@@ -3,7 +3,8 @@
 - [x] 1. Set up project foundation and database schema
   - Initialize Next.js project with TypeScript and Tailwind CSS
   - Configure Prisma client and database connection
-  - Add timing fields to Session model (startTime, endTime)
+  - **UPDATED**: Remove timing fields from Session model (startTime, endTime)
+  - **UPDATED**: Add individual timing fields to all entities (startHour, startMinute, endHour, endMinute)
   - Add course scheduling fields to Course model (classDuration, sessionsPerLecture, totalSessions)
   - Create database migration and apply schema changes
   - _Requirements: 6.2, 6.3, 6.4_
@@ -31,7 +32,7 @@
     - _Requirements: 5.1, 5.4_
 
   - [x] 3.2 Implement session management interface
-    - Create session creation form with timing configuration
+    - **UPDATED**: Create session creation form without timing configuration (moved to entities)
     - Build session list view with edit/delete capabilities
     - Implement "Copy from Session" functionality for data migration
     - Add session switching with data context updates
@@ -40,22 +41,25 @@
 - [x] 4. Implement core entity CRUD operations
   - [x] 4.1 Create student management system
     - Build student creation form with digitalId validation
-    - Implement student list view with search and pagination
-    - Create student edit/update functionality
+    - **UPDATED**: Add individual timing fields (startHour, startMinute, endHour, endMinute) to student forms
+    - Implement student list view with search, pagination, and working hours display
+    - Create student edit/update functionality with timing management
     - Add student deletion with confirmation
     - _Requirements: 5.2, 5.5, 6.2_
 
   - [x] 4.2 Create faculty management system
     - Build faculty creation form with name and shortForm fields
+    - **UPDATED**: Add individual timing fields (startHour, startMinute, endHour, endMinute) to faculty forms
     - Implement faculty list view with search and filtering
-    - Create faculty edit/update functionality
+    - Create faculty edit/update functionality with timing management
     - Add faculty deletion with relationship checks
     - _Requirements: 5.2, 5.5, 6.2_
 
   - [x] 4.3 Create hall management system
     - Build hall creation form with name, floor, building, and shortForm
+    - **UPDATED**: Add individual timing fields (startHour, startMinute, endHour, endMinute) to hall forms
     - Implement hall list view with building/floor filtering
-    - Create hall edit/update functionality
+    - Create hall edit/update functionality with timing management
     - Add hall deletion with usage validation
     - _Requirements: 5.2, 5.5, 6.2_
 
@@ -147,11 +151,11 @@
     - Add data validation and integrity checks during copying
     - _Requirements: 2.1, 5.4, 6.4_
 
-  - [ ] 8.2 Implement session timing and boundary management
-    - Create session timing configuration interface with startTime/endTime
-    - Implement timing validation and boundary enforcement
-    - Build timetable display within session timing constraints
-    - Add default timing fallback and session-specific overrides
+  - [ ] 8.2 Implement entity timing and boundary management
+    - **UPDATED**: Create entity-specific timing configuration interfaces
+    - Implement timing validation and boundary enforcement for individual entities
+    - Build timetable display within entity-specific timing constraints
+    - Add default timing values and entity-specific overrides
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
 
 - [ ] 9. Build API endpoints and data persistence
