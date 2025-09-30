@@ -2,29 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse } from '@/types'
-
-interface Student {
-  id: number
-  digitalId: number
-  timetable: any
-  startHour: number
-  startMinute: number
-  endHour: number
-  endMinute: number
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  studentGroupMemberships: Array<{
-    studentGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-}
+import { ApiResponse, Student } from '@/types'
 
 interface StudentListProps {
   onStudentSelect: (student: Student) => void
@@ -77,7 +55,7 @@ export default function StudentList({ onStudentSelect, onCreateNew, refreshTrigg
 
   useEffect(() => {
     fetchStudents()
-  }, [currentSession, currentPage, searchTerm, refreshTrigger])
+  }, [currentSession, currentPage, searchTerm, refreshTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

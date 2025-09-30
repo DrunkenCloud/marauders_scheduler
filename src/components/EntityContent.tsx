@@ -6,6 +6,9 @@ import StudentManagement from './StudentManagement'
 import FacultyManagement from './FacultyManagement'
 import HallManagement from './HallManagement'
 import CourseManagement from './CourseManagement'
+import { StudentGroupManagement } from './StudentGroupManagement'
+import { FacultyGroupManagement } from './FacultyGroupManagement'
+import { HallGroupManagement } from './HallGroupManagement'
 
 interface EntityContentProps {
   entityType: EntityType | null
@@ -147,6 +150,21 @@ export default function EntityContent({ entityType }: EntityContentProps) {
     return <CourseManagement />
   }
 
+  // Return specific management component for student groups
+  if (entityType === EntityType.STUDENT_GROUP) {
+    return <StudentGroupManagement />
+  }
+
+  // Return specific management component for faculty groups
+  if (entityType === EntityType.FACULTY_GROUP) {
+    return <FacultyGroupManagement />
+  }
+
+  // Return specific management component for hall groups
+  if (entityType === EntityType.HALL_GROUP) {
+    return <HallGroupManagement />
+  }
+
   return (
     <div className="flex-1 p-6 bg-gray-50">
       <div className="max-w-4xl mx-auto">
@@ -180,9 +198,9 @@ export default function EntityContent({ entityType }: EntityContentProps) {
                   <span className="font-medium text-gray-900">{currentSession.name}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Time Range:</span>
+                  <span className="text-gray-600">Created:</span>
                   <span className="font-medium text-gray-900">
-                    {currentSession.startTime} - {currentSession.endTime}
+                    {new Date(currentSession.createdAt).toLocaleDateString()}
                   </span>
                 </div>
                 {currentSession.details && (

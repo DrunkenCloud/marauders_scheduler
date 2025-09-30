@@ -2,31 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse } from '@/types'
-
-interface Faculty {
-  id: number
-  name: string
-  shortForm: string | null
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  facultyGroupMemberships: Array<{
-    facultyGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-  coursesTaught: Array<{
-    id: number
-    name: string
-    code: string
-  }>
-}
+import { ApiResponse, Faculty } from '@/types'
 
 interface FacultyListProps {
   onFacultySelect: (faculty: Faculty) => void
@@ -79,7 +55,7 @@ export default function FacultyList({ onFacultySelect, onCreateNew, refreshTrigg
 
   useEffect(() => {
     fetchFaculty()
-  }, [currentSession, currentPage, searchTerm, refreshTrigger])
+  }, [currentSession, currentPage, searchTerm, refreshTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

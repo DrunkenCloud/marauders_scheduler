@@ -70,22 +70,22 @@
     - Add course deletion with enrollment checks
     - _Requirements: 5.2, 5.5, 6.2_
 
-- [ ] 5. Implement group management systems
-  - [ ] 5.1 Create student group management
+- [x] 5. Implement group management systems
+  - [x] 5.1 Create student group management
     - Build student group creation form with unique groupName validation
     - Implement student group list view with member count display
     - Create member management interface for adding/removing students
     - Add bulk member operations and CSV import functionality
     - _Requirements: 5.2, 5.5, 6.2_
 
-  - [ ] 5.2 Create faculty group management
+  - [x] 5.2 Create faculty group management
     - Build faculty group creation form with groupName validation
     - Implement faculty group list view with member management
     - Create faculty member assignment interface
     - Add group-based faculty operations and bulk updates
     - _Requirements: 5.2, 5.5, 6.2_
 
-  - [ ] 5.3 Create hall group management
+  - [x] 5.3 Create hall group management
     - Build hall group creation form with validation
     - Implement hall group list view with building-based grouping
     - Create hall assignment interface for group management
@@ -166,7 +166,7 @@
     - Add authentication middleware for protected routes
     - _Requirements: 1.2, 1.4, 1.5_
 
-  - [ ] 9.2 Create entity management API endpoints
+  - [x] 9.2 Create entity management API endpoints
     - Implement CRUD endpoints for students (/api/students)
     - Create CRUD endpoints for faculty (/api/faculty)
     - Build CRUD endpoints for halls (/api/halls)

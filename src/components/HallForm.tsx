@@ -2,33 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse } from '@/types'
-
-interface Hall {
-  id: number
-  name: string
-  Floor: string
-  Building: string
-  shortForm: string | null
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  hallGroupMemberships: Array<{
-    hallGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-  coursesTaught: Array<{
-    id: number
-    name: string
-    code: string
-  }>
-}
+import { ApiResponse, Hall } from '@/types'
 
 interface HallFormProps {
   hall?: Hall | null
@@ -235,7 +209,7 @@ export default function HallForm({ hall, onSave, onCancel }: HallFormProps) {
             <h4 className="text-sm font-medium text-blue-900 mb-2">Session Information</h4>
             <div className="text-sm text-blue-800">
               <p><strong>Session:</strong> {currentSession.name}</p>
-              <p><strong>Time Range:</strong> {currentSession.startTime} - {currentSession.endTime}</p>
+              <p><strong>Created:</strong> {new Date(currentSession.createdAt).toLocaleDateString()}</p>
               {currentSession.details && (
                 <p><strong>Description:</strong> {currentSession.details}</p>
               )}

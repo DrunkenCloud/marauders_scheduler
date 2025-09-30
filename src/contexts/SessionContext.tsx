@@ -156,7 +156,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
 
   useEffect(() => {
     refreshSessions()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const value: SessionContextType = {
     currentSession,

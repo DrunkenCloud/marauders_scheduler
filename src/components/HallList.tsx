@@ -2,33 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse } from '@/types'
-
-interface Hall {
-  id: number
-  name: string
-  Floor: string
-  Building: string
-  shortForm: string | null
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  hallGroupMemberships: Array<{
-    hallGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-  coursesTaught: Array<{
-    id: number
-    name: string
-    code: string
-  }>
-}
+import { ApiResponse, Hall } from '@/types'
 
 interface HallListProps {
   onHallSelect: (hall: Hall) => void
@@ -89,7 +63,7 @@ export default function HallList({ onHallSelect, onCreateNew, refreshTrigger }: 
 
   useEffect(() => {
     fetchHalls()
-  }, [currentSession, currentPage, searchTerm, selectedBuilding, selectedFloor, refreshTrigger])
+  }, [currentSession, currentPage, searchTerm, selectedBuilding, selectedFloor, refreshTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

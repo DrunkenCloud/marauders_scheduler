@@ -2,47 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse } from '@/types'
-
-interface Course {
-  id: number
-  name: string
-  code: string
-  classDuration: number
-  sessionsPerLecture: number
-  totalSessions: number
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  compulsoryFaculties: Array<{
-    id: number
-    name: string
-    shortForm: string | null
-  }>
-  compulsoryHalls: Array<{
-    id: number
-    name: string
-    Building: string
-    Floor: string
-    shortForm: string | null
-  }>
-  studentEnrollments: Array<{
-    student: {
-      id: number
-      digitalId: number
-    }
-  }>
-  studentGroupEnrollments: Array<{
-    studentGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-}
+import { ApiResponse, Course } from '@/types'
 
 interface CourseFormProps {
   course?: Course | null
@@ -297,7 +257,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
             <h4 className="text-sm font-medium text-blue-900 mb-2">Session Information</h4>
             <div className="text-sm text-blue-800">
               <p><strong>Session:</strong> {currentSession.name}</p>
-              <p><strong>Time Range:</strong> {currentSession.startTime} - {currentSession.endTime}</p>
+              <p><strong>Created:</strong> {new Date(currentSession.createdAt).toLocaleDateString()}</p>
               {currentSession.details && (
                 <p><strong>Description:</strong> {currentSession.details}</p>
               )}

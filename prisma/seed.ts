@@ -10,9 +10,7 @@ async function main() {
     await prisma.session.create({
       data: {
         name: 'Spring 2025',
-        details: 'Spring semester 2025',
-        startTime: '08:10',
-        endTime: '15:30'
+        details: 'Spring semester 2025'
       }
     })
     

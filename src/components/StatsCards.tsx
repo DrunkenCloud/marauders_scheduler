@@ -2,25 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse } from '@/types'
-
-interface DashboardStats {
-  students: number
-  faculty: number
-  halls: number
-  courses: number
-  studentGroups: number
-  facultyGroups: number
-  hallGroups: number
-}
-
-interface StatCard {
-  label: string
-  value: number
-  icon: string
-  color: string
-  description: string
-}
+import { ApiResponse, DashboardStats, StatCard } from '@/types'
 
 export default function StatsCards() {
   const { currentSession } = useSession()

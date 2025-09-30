@@ -1,50 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { Course, ViewMode } from '@/types'
 import CourseList from './CourseList'
 import CourseForm from './CourseForm'
-
-interface Course {
-  id: number
-  name: string
-  code: string
-  classDuration: number
-  sessionsPerLecture: number
-  totalSessions: number
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  compulsoryFaculties: Array<{
-    id: number
-    name: string
-    shortForm: string | null
-  }>
-  compulsoryHalls: Array<{
-    id: number
-    name: string
-    Building: string
-    Floor: string
-    shortForm: string | null
-  }>
-  studentEnrollments: Array<{
-    student: {
-      id: number
-      digitalId: number
-    }
-  }>
-  studentGroupEnrollments: Array<{
-    studentGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-}
-
-type ViewMode = 'list' | 'create' | 'edit'
 
 export default function CourseManagement() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')

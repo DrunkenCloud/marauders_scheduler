@@ -2,47 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse } from '@/types'
-
-interface Course {
-  id: number
-  name: string
-  code: string
-  classDuration: number
-  sessionsPerLecture: number
-  totalSessions: number
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  compulsoryFaculties: Array<{
-    id: number
-    name: string
-    shortForm: string | null
-  }>
-  compulsoryHalls: Array<{
-    id: number
-    name: string
-    Building: string
-    Floor: string
-    shortForm: string | null
-  }>
-  studentEnrollments: Array<{
-    student: {
-      id: number
-      digitalId: number
-    }
-  }>
-  studentGroupEnrollments: Array<{
-    studentGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-}
+import { ApiResponse, Course } from '@/types'
 
 interface CourseListProps {
   onCourseSelect: (course: Course) => void
@@ -95,7 +55,7 @@ export default function CourseList({ onCourseSelect, onCreateNew, refreshTrigger
 
   useEffect(() => {
     fetchCourses()
-  }, [currentSession, currentPage, searchTerm, refreshTrigger])
+  }, [currentSession, currentPage, searchTerm, refreshTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()

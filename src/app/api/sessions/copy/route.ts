@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
         const newStudent = await tx.student.create({
           data: {
             digitalId: student.digitalId,
-            timetable: student.timetable,
+            timetable: student.timetable as any,
             sessionId: targetSessionIdInt
           }
         })
@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
           data: {
             name: faculty.name,
             shortForm: faculty.shortForm,
-            timetable: faculty.timetable,
+            timetable: faculty.timetable as any,
             sessionId: targetSessionIdInt
           }
         })
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
             Floor: hall.Floor,
             Building: hall.Building,
             shortForm: hall.shortForm,
-            timetable: hall.timetable,
+            timetable: hall.timetable as any,
             sessionId: targetSessionIdInt
           }
         })
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
           data: {
             name: course.name,
             code: course.code,
-            timetable: course.timetable,
+            timetable: course.timetable as any,
             classDuration: course.classDuration,
             sessionsPerLecture: course.sessionsPerLecture,
             totalSessions: course.totalSessions,
@@ -236,7 +236,7 @@ export async function POST(request: NextRequest) {
         const newGroup = await tx.studentGroup.create({
           data: {
             groupName: group.groupName,
-            timetable: group.timetable,
+            timetable: group.timetable as any,
             sessionId: targetSessionIdInt
           }
         })
@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
         const newGroup = await tx.facultyGroup.create({
           data: {
             groupName: group.groupName,
-            timetable: group.timetable,
+            timetable: group.timetable as any,
             sessionId: targetSessionIdInt
           }
         })
@@ -301,7 +301,7 @@ export async function POST(request: NextRequest) {
         const newGroup = await tx.hallGroup.create({
           data: {
             groupName: group.groupName,
-            timetable: group.timetable,
+            timetable: group.timetable as any,
             sessionId: targetSessionIdInt
           }
         })

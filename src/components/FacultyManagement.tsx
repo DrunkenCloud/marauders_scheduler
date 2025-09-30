@@ -1,34 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { Faculty, ViewMode } from '@/types'
 import FacultyList from './FacultyList'
 import FacultyForm from './FacultyForm'
-
-interface Faculty {
-  id: number
-  name: string
-  shortForm: string | null
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  facultyGroupMemberships: Array<{
-    facultyGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-  coursesTaught: Array<{
-    id: number
-    name: string
-    code: string
-  }>
-}
-
-type ViewMode = 'list' | 'create' | 'edit'
 
 export default function FacultyManagement() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')

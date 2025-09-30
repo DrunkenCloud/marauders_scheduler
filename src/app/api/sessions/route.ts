@@ -10,7 +10,10 @@ export async function GET() {
 
     const response: ApiResponse<SessionConfig[]> = {
       success: true,
-      data: sessions
+      data: sessions.map(session => ({
+        ...session,
+        details: session.details ?? undefined
+      }))
     }
 
     return NextResponse.json(response)
@@ -56,7 +59,10 @@ export async function POST(request: NextRequest) {
 
     const response: ApiResponse<SessionConfig> = {
       success: true,
-      data: session
+      data: {
+        ...session,
+        details: session.details ?? undefined
+      }
     }
 
     return NextResponse.json(response, { status: 201 })

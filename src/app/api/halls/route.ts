@@ -73,8 +73,8 @@ export async function GET(request: NextRequest) {
       distinct: ['Building', 'Floor']
     })
 
-    const buildings = [...new Set(allHalls.map(h => h.Building))].sort()
-    const floors = [...new Set(allHalls.map(h => h.Floor))].sort()
+    const buildings = Array.from(new Set(allHalls.map(h => h.Building))).sort()
+    const floors = Array.from(new Set(allHalls.map(h => h.Floor))).sort()
 
     const response: ApiResponse = {
       success: true,

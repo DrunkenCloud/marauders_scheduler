@@ -1,28 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { Student, ViewMode } from '@/types'
 import StudentList from './StudentList'
 import StudentForm from './StudentForm'
-
-interface Student {
-  id: number
-  digitalId: number
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  studentGroupMemberships: Array<{
-    studentGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-}
-
-type ViewMode = 'list' | 'create' | 'edit'
 
 export default function StudentManagement() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')

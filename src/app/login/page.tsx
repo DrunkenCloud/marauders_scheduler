@@ -171,7 +171,7 @@ export default function LoginPage() {
 
           <div className="text-center">
             <p className="text-xs text-gray-500">
-              Use username "admin" and password "password" for admin access
+              Use username &quot;admin&quot; and password &quot;password&quot; for admin access
             </p>
           </div>
         </form>

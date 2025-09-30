@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ApiResponse } from '@/types'
-
-interface DashboardStats {
-  students: number
-  faculty: number
-  halls: number
-  courses: number
-  studentGroups: number
-  facultyGroups: number
-  hallGroups: number
-}
+import { ApiResponse, DashboardStats } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {

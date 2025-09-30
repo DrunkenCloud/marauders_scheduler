@@ -132,7 +132,7 @@ export default function SessionManagement({ isOpen, onClose }: SessionManagement
                 <div>
                   <div className="font-medium text-blue-900">{currentSession.name}</div>
                   <div className="text-sm text-blue-700">
-                    {currentSession.startTime} - {currentSession.endTime}
+                    Created: {new Date(currentSession.createdAt).toLocaleDateString()}
                   </div>
                   {currentSession.details && (
                     <div className="text-sm text-blue-600 mt-1">{currentSession.details}</div>
@@ -191,7 +191,7 @@ export default function SessionManagement({ isOpen, onClose }: SessionManagement
                           )}
                         </div>
                         <div className="text-sm text-gray-600 mt-1">
-                          {session.startTime} - {session.endTime}
+                          Created: {new Date(session.createdAt).toLocaleDateString()}
                         </div>
                         {session.details && (
                           <div className="text-sm text-gray-500 mt-1">{session.details}</div>

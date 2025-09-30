@@ -2,30 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse } from '@/types'
+import { ApiResponse, Student } from '@/types'
 import TimingFields from './TimingFields'
-
-interface Student {
-  id: number
-  digitalId: number
-  timetable: any
-  startHour: number
-  startMinute: number
-  endHour: number
-  endMinute: number
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  studentGroupMemberships: Array<{
-    studentGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-}
 
 interface StudentFormProps {
   student?: Student | null

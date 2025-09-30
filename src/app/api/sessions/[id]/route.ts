@@ -4,10 +4,11 @@ import { ApiResponse, SessionConfig } from '@/types'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sessionId = parseInt(params.id)
+    const { id: idParam } = await params
+    const sessionId = parseInt(idParam)
     
     if (isNaN(sessionId)) {
       const response: ApiResponse = {
@@ -39,7 +40,10 @@ export async function GET(
 
     const response: ApiResponse<SessionConfig> = {
       success: true,
-      data: session
+      data: {
+        ...session,
+        details: session.details ?? undefined
+      }
     }
 
     return NextResponse.json(response)
@@ -61,10 +65,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sessionId = parseInt(params.id)
+    const { id: idParam } = await params
+    const sessionId = parseInt(idParam)
     const body = await request.json()
     const { name, details } = body
 
@@ -90,7 +95,10 @@ export async function PUT(
 
     const response: ApiResponse<SessionConfig> = {
       success: true,
-      data: session
+      data: {
+        ...session,
+        details: session.details ?? undefined
+      }
     }
 
     return NextResponse.json(response)
@@ -119,10 +127,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const sessionId = parseInt(params.id)
+    const { id: idParam } = await params
+    const sessionId = parseInt(idParam)
 
     if (isNaN(sessionId)) {
       const response: ApiResponse = {

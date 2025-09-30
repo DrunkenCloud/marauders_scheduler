@@ -1,36 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import { Hall, ViewMode } from '@/types'
 import HallList from './HallList'
 import HallForm from './HallForm'
-
-interface Hall {
-  id: number
-  name: string
-  Floor: string
-  Building: string
-  shortForm: string | null
-  timetable: any
-  createdAt: string
-  updatedAt: string
-  session: {
-    id: number
-    name: string
-  }
-  hallGroupMemberships: Array<{
-    hallGroup: {
-      id: number
-      groupName: string
-    }
-  }>
-  coursesTaught: Array<{
-    id: number
-    name: string
-    code: string
-  }>
-}
-
-type ViewMode = 'list' | 'create' | 'edit'
 
 export default function HallManagement() {
   const [viewMode, setViewMode] = useState<ViewMode>('list')

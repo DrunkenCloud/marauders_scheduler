@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ApiResponse } from '@/types'
+import { ApiResponse, PaginationInfo } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
