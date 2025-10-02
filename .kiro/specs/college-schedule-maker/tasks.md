@@ -92,15 +92,15 @@
     - Add bulk hall operations and group-based filtering
     - _Requirements: 5.2, 5.5, 6.2_
 
-- [ ] 6. Build timetable management system
-  - [ ] 6.1 Create timetable data structures and validation
+- [-] 6. Build timetable management system
+  - [x] 6.1 Create timetable data structures and validation
     - Implement slot-based timetable JSON structure with [0] and [1+, ...] format
     - Create timetable validation functions for entity-specific rules
     - Build slot fragmentation utilities for duration management
     - Implement timetable initialization for new entities
     - _Requirements: 3.1, 3.2, 4.1, 6.1_
 
-  - [ ] 6.2 Build timetable editor interface
+  - [x] 6.2 Build timetable editor interface
     - Create visual grid-based timetable editor with day/time layout
     - Implement click-to-edit functionality for individual slots
     - Build slot editor modal with course, type, hall, and faculty assignment

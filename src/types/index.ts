@@ -265,12 +265,16 @@ export interface HallGroupFormData {
 // Timetable Types
 export interface TimetableSlot {
   status: number        // 0 = free, 1+ = occupied
-  startTime: string     // "08:10"
+  startHour: number     // 0-23
+  startMinute: number   // 0-59
   duration: number      // minutes
   courseCode?: string   // when occupied
-  courseType?: string   // "LAB", "LECTURE", etc.
-  hallId?: number      // assigned hall
-  facultyId?: number   // assigned faculty
+  hallIds?: number[]    // assigned halls
+  facultyIds?: number[] // assigned faculties
+  hallGroupIds?: number[] // assigned hall groups
+  facultyGroupIds?: number[] // assigned faculty groups
+  studentIds?: number[] // assigned students
+  studentGroupIds?: number[] // assigned student groups
 }
 
 export interface DaySchedule {

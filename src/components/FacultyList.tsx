@@ -7,10 +7,11 @@ import { ApiResponse, Faculty } from '@/types'
 interface FacultyListProps {
   onFacultySelect: (faculty: Faculty) => void
   onCreateNew: () => void
+  onManageTimetable?: (faculty: Faculty) => void
   refreshTrigger?: number
 }
 
-export default function FacultyList({ onFacultySelect, onCreateNew, refreshTrigger }: FacultyListProps) {
+export default function FacultyList({ onFacultySelect, onCreateNew, onManageTimetable, refreshTrigger }: FacultyListProps) {
   const { currentSession } = useSession()
   const [faculty, setFaculty] = useState<Faculty[]>([])
   const [loading, setLoading] = useState(true)
@@ -247,6 +248,14 @@ export default function FacultyList({ onFacultySelect, onCreateNew, refreshTrigg
                             >
                               Edit
                             </button>
+                            {onManageTimetable && (
+                              <button
+                                onClick={() => onManageTimetable(facultyMember)}
+                                className="text-green-600 hover:text-green-900 transition-colors"
+                              >
+                                Timetable
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(facultyMember)}
                               className="text-red-600 hover:text-red-900 transition-colors"

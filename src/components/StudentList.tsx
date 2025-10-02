@@ -7,10 +7,11 @@ import { ApiResponse, Student } from '@/types'
 interface StudentListProps {
   onStudentSelect: (student: Student) => void
   onCreateNew: () => void
+  onManageTimetable?: (student: Student) => void
   refreshTrigger?: number
 }
 
-export default function StudentList({ onStudentSelect, onCreateNew, refreshTrigger }: StudentListProps) {
+export default function StudentList({ onStudentSelect, onCreateNew, onManageTimetable, refreshTrigger }: StudentListProps) {
   const { currentSession } = useSession()
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
@@ -225,6 +226,14 @@ export default function StudentList({ onStudentSelect, onCreateNew, refreshTrigg
                             >
                               Edit
                             </button>
+                            {onManageTimetable && (
+                              <button
+                                onClick={() => onManageTimetable(student)}
+                                className="text-green-600 hover:text-green-900 transition-colors"
+                              >
+                                Timetable
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(student)}
                               className="text-red-600 hover:text-red-900 transition-colors"

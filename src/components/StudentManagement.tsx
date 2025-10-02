@@ -1,12 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Student, ViewMode } from '@/types'
+import { Student, ViewMode, EntityType } from '@/types'
 import StudentList from './StudentList'
 import StudentForm from './StudentForm'
+import TimetableManagement from './TimetableManagement'
+
+type ExtendedViewMode = ViewMode | 'timetable'
 
 export default function StudentManagement() {
-  const [viewMode, setViewMode] = useState<ViewMode>('list')
+  const [viewMode, setViewMode] = useState<ExtendedViewMode>('list')
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
@@ -31,6 +34,16 @@ export default function StudentManagement() {
     setSelectedStudent(null)
   }
 
+  const handleManageTimetable = (student: Student) => {
+    setSelectedStudent(student)
+    setViewMode('timetable')
+  }
+
+  const handleBackFromTimetable = () => {
+    setViewMode('list')
+    setSelectedStudent(null)
+  }
+
   return (
     <div className="flex-1 p-6 bg-gray-50">
       <div className="max-w-6xl mx-auto">
@@ -40,9 +53,17 @@ export default function StudentManagement() {
               <StudentList
                 onStudentSelect={handleStudentSelect}
                 onCreateNew={handleCreateNew}
+                onManageTimetable={handleManageTimetable}
                 refreshTrigger={refreshTrigger}
               />
             </div>
+          ) : viewMode === 'timetable' ? (
+            <TimetableManagement
+              entityId={selectedStudent?.id || 0}
+              entityType={EntityType.STUDENT}
+              entityName={`Student ${selectedStudent?.digitalId}`}
+              onBack={handleBackFromTimetable}
+            />
           ) : (
             <div className="p-6">
               <StudentForm

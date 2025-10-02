@@ -7,10 +7,11 @@ import { ApiResponse, Hall } from '@/types'
 interface HallListProps {
   onHallSelect: (hall: Hall) => void
   onCreateNew: () => void
+  onManageTimetable?: (hall: Hall) => void
   refreshTrigger?: number
 }
 
-export default function HallList({ onHallSelect, onCreateNew, refreshTrigger }: HallListProps) {
+export default function HallList({ onHallSelect, onCreateNew, onManageTimetable, refreshTrigger }: HallListProps) {
   const { currentSession } = useSession()
   const [halls, setHalls] = useState<Hall[]>([])
   const [loading, setLoading] = useState(true)
@@ -319,6 +320,14 @@ export default function HallList({ onHallSelect, onCreateNew, refreshTrigger }: 
                             >
                               Edit
                             </button>
+                            {onManageTimetable && (
+                              <button
+                                onClick={() => onManageTimetable(hall)}
+                                className="text-green-600 hover:text-green-900 transition-colors"
+                              >
+                                Timetable
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(hall)}
                               className="text-red-600 hover:text-red-900 transition-colors"
