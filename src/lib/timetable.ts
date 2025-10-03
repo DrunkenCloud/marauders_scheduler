@@ -225,31 +225,14 @@ export function validateTimetable(timetable: EntityTimetable): ValidationResult 
   })
   
   // Entity-specific validation
-  if (timetable.entityType === EntityType.STUDENT) {
-    // Students must have complete timetables (all slots defined)
-    DAYS_OF_WEEK.forEach(day => {
-      const daySlots = timetable.schedule[day] || []
-      if (daySlots.length === 0) {
-        errors.push(`Student timetable for ${day} cannot be empty`)
+  DAYS_OF_WEEK.forEach(day => {
+    const daySlots = timetable.schedule[day] || []
+    daySlots.forEach((slot, index) => {
+      if (Array.isArray(slot) && slot.length === 1 && slot[0] === 0) {
+        warnings.push(`${timetable.entityType} timetable for ${day}, slot ${index + 1} is marked as free (consider removing for partial timetables)`)
       }
-      
-      daySlots.forEach((slot, index) => {
-        if (!slot) {
-          errors.push(`Student timetable for ${day}, slot ${index + 1} is undefined`)
-        }
-      })
     })
-  } else {
-    // Faculty, halls, groups can have partial timetables
-    DAYS_OF_WEEK.forEach(day => {
-      const daySlots = timetable.schedule[day] || []
-      daySlots.forEach((slot, index) => {
-        if (Array.isArray(slot) && slot.length === 1 && slot[0] === 0) {
-          warnings.push(`${timetable.entityType} timetable for ${day}, slot ${index + 1} is marked as free (consider removing for partial timetables)`)
-        }
-      })
-    })
-  }
+  })
   
   // Validate slot data integrity
   DAYS_OF_WEEK.forEach(day => {

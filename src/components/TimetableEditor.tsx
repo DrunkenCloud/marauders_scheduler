@@ -135,6 +135,17 @@ export default function TimetableEditor({
     const slotStart = slot.startHour * 60 + slot.startMinute
     const slotEnd = slotStart + slot.duration
 
+    // Helper function to check if a slot is the same as the one being edited
+    const isSameSlot = (existingSlot: any, originalSlot: TimetableSlot) => {
+      return existingSlot.startHour === originalSlot.startHour &&
+        existingSlot.startMinute === originalSlot.startMinute &&
+        existingSlot.duration === originalSlot.duration &&
+        existingSlot.courseCode === originalSlot.courseCode
+    }
+
+    // Get the original slot being edited (if any)
+    const originalSlot = selectedSlot?.slot
+
     try {
       // Check faculty conflicts
       if (slot.facultyIds && slot.facultyIds.length > 0) {
@@ -147,6 +158,11 @@ export default function TimetableEditor({
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
                 if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                  // Skip if this is the same slot we're editing
+                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
+                    continue
+                  }
+
                   const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
                   const existingEnd = existingStart + existingSlot.duration
 
@@ -172,6 +188,11 @@ export default function TimetableEditor({
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
                 if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                  // Skip if this is the same slot we're editing
+                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
+                    continue
+                  }
+
                   const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
                   const existingEnd = existingStart + existingSlot.duration
 
@@ -197,6 +218,11 @@ export default function TimetableEditor({
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
                 if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                  // Skip if this is the same slot we're editing
+                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
+                    continue
+                  }
+
                   const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
                   const existingEnd = existingStart + existingSlot.duration
 
@@ -222,6 +248,11 @@ export default function TimetableEditor({
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
                 if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                  // Skip if this is the same slot we're editing
+                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
+                    continue
+                  }
+
                   const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
                   const existingEnd = existingStart + existingSlot.duration
 
@@ -247,6 +278,11 @@ export default function TimetableEditor({
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
                 if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                  // Skip if this is the same slot we're editing
+                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
+                    continue
+                  }
+
                   const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
                   const existingEnd = existingStart + existingSlot.duration
 
@@ -272,6 +308,11 @@ export default function TimetableEditor({
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
                 if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                  // Skip if this is the same slot we're editing
+                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
+                    continue
+                  }
+
                   const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
                   const existingEnd = existingStart + existingSlot.duration
 
@@ -292,7 +333,7 @@ export default function TimetableEditor({
     }
 
     return conflicts
-  }, [currentSession, faculty, halls, facultyGroups, hallGroups, students, studentGroups])
+  }, [currentSession, faculty, halls, facultyGroups, hallGroups, students, studentGroups, selectedSlot])
 
   // Calculate timeline dimensions and positions
   const getTimelineWidth = () => {
