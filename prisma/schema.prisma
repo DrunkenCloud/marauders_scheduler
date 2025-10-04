@@ -176,6 +176,7 @@ model Course {
   classDuration           Int                   @default(50)        // minutes per session
   sessionsPerLecture      Int                   @default(1)         // consecutive sessions needed
   totalSessions           Int                   @default(3)         // total sessions per week
+  scheduledCount          Int                   @default(0)         // number of lectures already scheduled
   sessionId               Int
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt

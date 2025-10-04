@@ -139,6 +139,7 @@ export interface Course {
   classDuration: number
   sessionsPerLecture: number
   totalSessions: number
+  scheduledCount: number
   timetable: any
   createdAt: string
   updatedAt: string
@@ -169,6 +170,20 @@ export interface Course {
       id: number
       groupName: string
     }
+  }>
+  compulsoryFacultyGroups?: Array<{
+    facultyGroup: {
+      id: number
+      groupName: string
+    }
+    requiredCount: number
+  }>
+  compulsoryHallGroups?: Array<{
+    hallGroup: {
+      id: number
+      groupName: string
+    }
+    requiredCount: number
   }>
 }
 
@@ -264,11 +279,13 @@ export interface HallGroupFormData {
 
 // Timetable Types
 export interface TimetableSlot {
-  status: number        // 0 = free, 1+ = occupied
+  type: 'course' | 'blocker'  // slot type
   startHour: number     // 0-23
   startMinute: number   // 0-59
   duration: number      // minutes
-  courseCode?: string   // when occupied
+  courseId?: number     // for course slots
+  courseCode?: string   // for course slots
+  blockerReason?: string // for blocker slots
   hallIds?: number[]    // assigned halls
   facultyIds?: number[] // assigned faculties
   hallGroupIds?: number[] // assigned hall groups
@@ -278,7 +295,7 @@ export interface TimetableSlot {
 }
 
 export interface DaySchedule {
-  [day: string]: (TimetableSlot | [number])[]  // Array of slots, free slots as [0]
+  [day: string]: TimetableSlot[]  // Array of slots only (no free slots)
 }
 
 export interface EntityTimetable {

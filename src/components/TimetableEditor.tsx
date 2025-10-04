@@ -39,11 +39,13 @@ export default function TimetableEditor({
 
   // Slot editor form state
   const [editingSlot, setEditingSlot] = useState<TimetableSlot>({
-    status: 1,
+    type: 'course',
     startHour: 8,
     startMinute: 0,
     duration: 50,
+    courseId: undefined,
     courseCode: '',
+    blockerReason: '',
     facultyIds: [],
     hallIds: [],
     facultyGroupIds: [],
@@ -60,6 +62,8 @@ export default function TimetableEditor({
   const [studentGroups, setStudentGroups] = useState<StudentGroup[]>([])
   const [conflicts, setConflicts] = useState<string[]>([])
   const [checkingConflicts, setCheckingConflicts] = useState(false)
+  const [availableCourses, setAvailableCourses] = useState<Course[]>([])
+  const [loadingCourses, setLoadingCourses] = useState(false)
 
   // Initialize timetable
   useEffect(() => {
@@ -127,6 +131,30 @@ export default function TimetableEditor({
     loadReferenceData()
   }, [currentSession])
 
+  // Load available courses based on entity
+  useEffect(() => {
+    if (!currentSession) return
+
+    const loadAvailableCourses = async () => {
+      setLoadingCourses(true)
+      try {
+        const response = await fetch(`/api/courses/available?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            setAvailableCourses(data.data.courses || [])
+          }
+        }
+      } catch (error) {
+        console.error('Error loading available courses:', error)
+      } finally {
+        setLoadingCourses(false)
+      }
+    }
+
+    loadAvailableCourses()
+  }, [currentSession, entityType, entityId])
+
   // Check for conflicts when adding/updating slots
   const checkConflicts = useCallback(async (slot: TimetableSlot, day: string, excludeSlotIndex?: number): Promise<string[]> => {
     if (!currentSession) return []
@@ -140,7 +168,8 @@ export default function TimetableEditor({
       return existingSlot.startHour === originalSlot.startHour &&
         existingSlot.startMinute === originalSlot.startMinute &&
         existingSlot.duration === originalSlot.duration &&
-        existingSlot.courseCode === originalSlot.courseCode
+        existingSlot.type === originalSlot.type &&
+        (existingSlot.courseId === originalSlot.courseId || existingSlot.courseCode === originalSlot.courseCode)
     }
 
     // Get the original slot being edited (if any)
@@ -157,7 +186,7 @@ export default function TimetableEditor({
               const daySlots = data.data.timetable.schedule[day] || []
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
                   // Skip if this is the same slot we're editing
                   if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
                     continue
@@ -168,7 +197,10 @@ export default function TimetableEditor({
 
                   if (slotStart < existingEnd && slotEnd > existingStart) {
                     const facultyName = faculty.find(f => f.id === facultyId)?.name || `Faculty ${facultyId}`
-                    conflicts.push(`${facultyName} is already occupied from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
+                    const slotDescription = existingSlot.type === 'course' 
+                      ? `teaching ${existingSlot.courseCode || 'a course'}`
+                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
+                    conflicts.push(`${facultyName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
                   }
                 }
               }
@@ -187,7 +219,7 @@ export default function TimetableEditor({
               const daySlots = data.data.timetable.schedule[day] || []
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
                   // Skip if this is the same slot we're editing
                   if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
                     continue
@@ -198,7 +230,10 @@ export default function TimetableEditor({
 
                   if (slotStart < existingEnd && slotEnd > existingStart) {
                     const hallName = halls.find(h => h.id === hallId)?.name || `Hall ${hallId}`
-                    conflicts.push(`${hallName} is already occupied from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
+                    const slotDescription = existingSlot.type === 'course' 
+                      ? `occupied by ${existingSlot.courseCode || 'a course'}`
+                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
+                    conflicts.push(`${hallName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
                   }
                 }
               }
@@ -217,7 +252,7 @@ export default function TimetableEditor({
               const daySlots = data.data.timetable.schedule[day] || []
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
                   // Skip if this is the same slot we're editing
                   if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
                     continue
@@ -228,7 +263,10 @@ export default function TimetableEditor({
 
                   if (slotStart < existingEnd && slotEnd > existingStart) {
                     const groupName = facultyGroups.find(g => g.id === groupId)?.groupName || `Faculty Group ${groupId}`
-                    conflicts.push(`${groupName} is already occupied from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
+                    const slotDescription = existingSlot.type === 'course' 
+                      ? `teaching ${existingSlot.courseCode || 'a course'}`
+                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
+                    conflicts.push(`${groupName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
                   }
                 }
               }
@@ -247,7 +285,7 @@ export default function TimetableEditor({
               const daySlots = data.data.timetable.schedule[day] || []
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
                   // Skip if this is the same slot we're editing
                   if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
                     continue
@@ -258,7 +296,10 @@ export default function TimetableEditor({
 
                   if (slotStart < existingEnd && slotEnd > existingStart) {
                     const groupName = hallGroups.find(g => g.id === groupId)?.groupName || `Hall Group ${groupId}`
-                    conflicts.push(`${groupName} is already occupied from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
+                    const slotDescription = existingSlot.type === 'course' 
+                      ? `occupied by ${existingSlot.courseCode || 'a course'}`
+                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
+                    conflicts.push(`${groupName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
                   }
                 }
               }
@@ -277,7 +318,7 @@ export default function TimetableEditor({
               const daySlots = data.data.timetable.schedule[day] || []
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
                   // Skip if this is the same slot we're editing
                   if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
                     continue
@@ -288,7 +329,10 @@ export default function TimetableEditor({
 
                   if (slotStart < existingEnd && slotEnd > existingStart) {
                     const studentName = students.find(s => s.id === studentId)?.digitalId || `Student ${studentId}`
-                    conflicts.push(`Student ${studentName} is already occupied from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
+                    const slotDescription = existingSlot.type === 'course' 
+                      ? `attending ${existingSlot.courseCode || 'a course'}`
+                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
+                    conflicts.push(`Student ${studentName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
                   }
                 }
               }
@@ -307,7 +351,7 @@ export default function TimetableEditor({
               const daySlots = data.data.timetable.schedule[day] || []
               for (let i = 0; i < daySlots.length; i++) {
                 const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'status' in existingSlot && existingSlot.status > 0) {
+                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
                   // Skip if this is the same slot we're editing
                   if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
                     continue
@@ -318,7 +362,10 @@ export default function TimetableEditor({
 
                   if (slotStart < existingEnd && slotEnd > existingStart) {
                     const groupName = studentGroups.find(g => g.id === groupId)?.groupName || `Student Group ${groupId}`
-                    conflicts.push(`${groupName} is already occupied from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
+                    const slotDescription = existingSlot.type === 'course' 
+                      ? `attending ${existingSlot.courseCode || 'a course'}`
+                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
+                    conflicts.push(`${groupName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
                   }
                 }
               }
@@ -334,6 +381,19 @@ export default function TimetableEditor({
 
     return conflicts
   }, [currentSession, faculty, halls, facultyGroups, hallGroups, students, studentGroups, selectedSlot])
+
+  // Update course scheduled count
+  const updateCourseScheduledCount = async (courseId: number, increment: number) => {
+    try {
+      await fetch(`/api/courses/${courseId}/scheduled-count`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ increment })
+      })
+    } catch (error) {
+      console.error('Error updating course scheduled count:', error)
+    }
+  }
 
   // Calculate timeline dimensions and positions
   const getTimelineWidth = () => {
@@ -378,7 +438,7 @@ export default function TimetableEditor({
     const daySlots = timetable.schedule[day] || []
     const slot = daySlots[slotIndex]
 
-    if (slot && typeof slot === 'object' && 'status' in slot) {
+    if (slot && typeof slot === 'object' && 'type' in slot) {
       const tSlot = slot as TimetableSlot
       setSelectedSlot({ day, slotIndex, slot: tSlot })
       setEditingSlot({
@@ -404,11 +464,13 @@ export default function TimetableEditor({
 
     // Create new slot at clicked position
     const newSlot: TimetableSlot = {
-      status: 1,
+      type: 'course',
       startHour: hour,
       startMinute: minute,
       duration: 50,
+      courseId: undefined,
       courseCode: '',
+      blockerReason: '',
       facultyIds: [],
       hallIds: [],
       facultyGroupIds: [],
@@ -432,7 +494,7 @@ export default function TimetableEditor({
     setConflicts(conflictList)
     setCheckingConflicts(false)
 
-    if (conflictList.length > 0 && editingSlot.status !== 0) {
+    if (conflictList.length > 0) {
       // Show conflicts but allow user to proceed if they want
       const proceed = confirm(`Conflicts detected:\n${conflictList.join('\n')}\n\nDo you want to proceed anyway?`)
       if (!proceed) return
@@ -450,29 +512,31 @@ export default function TimetableEditor({
 
     // Sort by start time
     daySlots.sort((a, b) => {
-      if (typeof a === 'object' && 'startHour' in a && typeof b === 'object' && 'startHour' in b) {
-        const aTime = a.startHour * 60 + a.startMinute
-        const bTime = b.startHour * 60 + b.startMinute
-        return aTime - bTime
-      }
-      return 0
+      const aTime = a.startHour * 60 + a.startMinute
+      const bTime = b.startHour * 60 + b.startMinute
+      return aTime - bTime
     })
 
     newTimetable.schedule[selectedDay] = daySlots
     setTimetable(newTimetable)
 
-    // Update all related entity timetables if slot is occupied
-    if (editingSlot.status > 0) {
-      await updateRelatedTimetables(editingSlot, selectedDay, 'add')
+    // Update course scheduled count if it's a course slot
+    if (editingSlot.type === 'course' && editingSlot.courseId) {
+      await updateCourseScheduledCount(editingSlot.courseId, 1)
     }
+
+    // Update all related entity timetables
+    await updateRelatedTimetables(editingSlot, selectedDay, 'add')
 
     // Reset form
     setEditingSlot({
-      status: 1,
+      type: 'course',
       startHour: 8,
       startMinute: 0,
       duration: 50,
+      courseId: undefined,
       courseCode: '',
+      blockerReason: '',
       facultyIds: [],
       hallIds: [],
       facultyGroupIds: [],
@@ -492,7 +556,7 @@ export default function TimetableEditor({
     setConflicts(conflictList)
     setCheckingConflicts(false)
 
-    if (conflictList.length > 0 && editingSlot.status !== 0) {
+    if (conflictList.length > 0) {
       // Show conflicts but allow user to proceed if they want
       const proceed = confirm(`Conflicts detected:\n${conflictList.join('\n')}\n\nDo you want to proceed anyway?`)
       if (!proceed) return
@@ -508,24 +572,25 @@ export default function TimetableEditor({
 
       // Sort by start time
       daySlots.sort((a, b) => {
-        if (typeof a === 'object' && 'startHour' in a && typeof b === 'object' && 'startHour' in b) {
-          const aTime = a.startHour * 60 + a.startMinute
-          const bTime = b.startHour * 60 + b.startMinute
-          return aTime - bTime
-        }
-        return 0
+        const aTime = a.startHour * 60 + a.startMinute
+        const bTime = b.startHour * 60 + b.startMinute
+        return aTime - bTime
       })
 
       newTimetable.schedule[selectedSlot.day] = daySlots
       setTimetable(newTimetable)
 
+      // Update course scheduled counts
+      if (oldSlot.type === 'course' && oldSlot.courseId) {
+        await updateCourseScheduledCount(oldSlot.courseId, -1)
+      }
+      if (editingSlot.type === 'course' && editingSlot.courseId) {
+        await updateCourseScheduledCount(editingSlot.courseId, 1)
+      }
+
       // Update all related entity timetables
-      if (oldSlot.status > 0) {
-        await updateRelatedTimetables(oldSlot, selectedSlot.day, 'remove')
-      }
-      if (editingSlot.status > 0) {
-        await updateRelatedTimetables(editingSlot, selectedSlot.day, 'add')
-      }
+      await updateRelatedTimetables(oldSlot, selectedSlot.day, 'remove')
+      await updateRelatedTimetables(editingSlot, selectedSlot.day, 'add')
     }
 
     setSelectedSlot(null)
@@ -571,12 +636,9 @@ export default function TimetableEditor({
               daySlots.push({ ...slot })
               // Sort by start time
               daySlots.sort((a, b) => {
-                if (typeof a === 'object' && 'startHour' in a && typeof b === 'object' && 'startHour' in b) {
-                  const aTime = a.startHour * 60 + a.startMinute
-                  const bTime = b.startHour * 60 + b.startMinute
-                  return aTime - bTime
-                }
-                return 0
+                const aTime = a.startHour * 60 + a.startMinute
+                const bTime = b.startHour * 60 + b.startMinute
+                return aTime - bTime
               })
             } else {
               // Remove matching slots
@@ -585,7 +647,10 @@ export default function TimetableEditor({
                 const existingSlot = daySlots[i]
                 if (typeof existingSlot === 'object' && 'startHour' in existingSlot) {
                   const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
-                  if (existingStart === slotStart && existingSlot.duration === slot.duration && existingSlot.courseCode === slot.courseCode) {
+                  if (existingStart === slotStart && 
+                      existingSlot.duration === slot.duration && 
+                      existingSlot.type === slot.type &&
+                      (existingSlot.courseId === slot.courseId || existingSlot.courseCode === slot.courseCode)) {
                     daySlots.splice(i, 1)
                   }
                 }
@@ -654,8 +719,9 @@ export default function TimetableEditor({
   }
 
   const getSlotColor = (slot: TimetableSlot): string => {
-    if (slot.status === 0) return 'bg-green-100 border-green-300 hover:bg-green-200'
-    return 'bg-blue-100 border-blue-300 hover:bg-blue-200'
+    if (slot.type === 'course') return 'bg-blue-100 border-blue-300 hover:bg-blue-200'
+    if (slot.type === 'blocker') return 'bg-red-100 border-red-300 hover:bg-red-200'
+    return 'bg-gray-100 border-gray-300 hover:bg-gray-200'
   }
 
   const formatTime = (hour: number, minute: number): string => {
@@ -688,7 +754,7 @@ export default function TimetableEditor({
 
   // Check conflicts when form changes
   useEffect(() => {
-    if (editingSlot.status > 0 && (editingSlot.facultyIds?.length || editingSlot.hallIds?.length || editingSlot.facultyGroupIds?.length || editingSlot.hallGroupIds?.length || editingSlot.studentIds?.length || editingSlot.studentGroupIds?.length)) {
+    if (editingSlot.facultyIds?.length || editingSlot.hallIds?.length || editingSlot.facultyGroupIds?.length || editingSlot.hallGroupIds?.length || editingSlot.studentIds?.length || editingSlot.studentGroupIds?.length) {
       const checkConflictsDebounced = setTimeout(async () => {
         setCheckingConflicts(true)
         const conflictList = await checkConflicts(editingSlot, selectedDay)
@@ -811,7 +877,7 @@ export default function TimetableEditor({
 
                     {/* Slots */}
                     {daySlots.map((slot, slotIndex) => {
-                      if (typeof slot !== 'object' || !('status' in slot)) return null
+                      if (typeof slot !== 'object' || !('type' in slot)) return null
 
                       const tSlot = slot as TimetableSlot
                       const { left, width } = getSlotPosition(tSlot)
@@ -831,7 +897,9 @@ export default function TimetableEditor({
                           {/* Slot Content */}
                           <div className="h-full flex items-center justify-center px-2 text-xs font-medium text-gray-800 overflow-hidden">
                             <div className="truncate">
-                              {tSlot.courseCode || 'New Slot'}
+                              {tSlot.type === 'course' 
+                                ? (tSlot.courseCode || 'Course') 
+                                : (tSlot.blockerReason || 'Blocked')}
                             </div>
                           </div>
 
@@ -865,18 +933,18 @@ export default function TimetableEditor({
         </h4>
 
         <div className="space-y-4">
-          {/* Status */}
+          {/* Slot Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Status
+              Slot Type
             </label>
             <select
-              value={editingSlot.status}
-              onChange={(e) => setEditingSlot({ ...editingSlot, status: parseInt(e.target.value) })}
+              value={editingSlot.type}
+              onChange={(e) => setEditingSlot({ ...editingSlot, type: e.target.value as 'course' | 'blocker' })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value={0}>Free</option>
-              <option value={1}>Occupied</option>
+              <option value="course">Course Lecture</option>
+              <option value="blocker">Time Blocker</option>
             </select>
           </div>
 
@@ -940,23 +1008,38 @@ export default function TimetableEditor({
             />
           </div>
 
-          {editingSlot.status > 0 && (
+          {editingSlot.type === 'course' && (
             <>
-              {/* Course Code */}
+              {/* Course Selection */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Course Code
+                  Course to Schedule
                 </label>
-                <select
-                  value={editingSlot.courseCode || ''}
-                  onChange={(e) => setEditingSlot({ ...editingSlot, courseCode: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select course...</option>
-                  {courses.map(course => (
-                    <option key={course.id} value={course.code}>{course.code} - {course.name}</option>
-                  ))}
-                </select>
+                {loadingCourses ? (
+                  <div className="text-sm text-gray-500">Loading available courses...</div>
+                ) : (
+                  <select
+                    value={editingSlot.courseId || ''}
+                    onChange={(e) => {
+                      const courseId = parseInt(e.target.value)
+                      const course = availableCourses.find(c => c.id === courseId)
+                      setEditingSlot({ 
+                        ...editingSlot, 
+                        courseId: courseId || undefined,
+                        courseCode: course?.code || '',
+                        duration: course?.classDuration || 50
+                      })
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select course to schedule...</option>
+                    {availableCourses.map(course => (
+                      <option key={course.id} value={course.id}>
+                        {course.code} - {course.name} ({course.scheduledCount}/{course.totalSessions} scheduled)
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               {/* Faculty */}
@@ -1085,6 +1168,21 @@ export default function TimetableEditor({
                 <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
               </div>
             </>
+          )}
+
+          {editingSlot.type === 'blocker' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Blocker Reason
+              </label>
+              <input
+                type="text"
+                value={editingSlot.blockerReason || ''}
+                onChange={(e) => setEditingSlot({ ...editingSlot, blockerReason: e.target.value })}
+                placeholder="Enter reason for blocking this time slot"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           )}
 
           {/* Conflicts Display */}
