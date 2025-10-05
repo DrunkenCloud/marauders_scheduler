@@ -57,6 +57,27 @@ export async function GET(request: NextRequest) {
               shortForm: true
             }
           },
+          compulsoryFacultyGroups: {
+            select: {
+              facultyGroup: {
+                select: {
+                  id: true,
+                  groupName: true
+                }
+              }
+            }
+          },
+          compulsoryHallGroups: {
+            select: {
+              hallGroup: {
+                select: {
+                  id: true,
+                  groupName: true
+                }
+              },
+              requiredCount: true
+            }
+          },
           studentEnrollments: {
             select: {
               student: {
@@ -122,7 +143,13 @@ export async function POST(request: NextRequest) {
       classDuration = 50, 
       sessionsPerLecture = 1, 
       totalSessions = 3,
-      timetable = {} 
+      timetable = {},
+      facultyIds = [],
+      hallIds = [],
+      studentIds = [],
+      studentGroupIds = [],
+      facultyGroupIds = [],
+      hallGroupIds = []
     } = body
 
     if (!name || !code || !sessionId) {
@@ -169,7 +196,40 @@ export async function POST(request: NextRequest) {
         classDuration: parseInt(classDuration),
         sessionsPerLecture: parseInt(sessionsPerLecture),
         totalSessions: parseInt(totalSessions),
-        timetable: timetable || defaultTimetable
+        timetable: timetable || defaultTimetable,
+        // Connect faculty
+        compulsoryFaculties: {
+          connect: facultyIds.map((id: number) => ({ id }))
+        },
+        // Connect halls
+        compulsoryHalls: {
+          connect: hallIds.map((id: number) => ({ id }))
+        },
+        // Create student enrollments
+        studentEnrollments: {
+          create: studentIds.map((studentId: number) => ({
+            studentId
+          }))
+        },
+        // Create student group enrollments
+        studentGroupEnrollments: {
+          create: studentGroupIds.map((studentGroupId: number) => ({
+            studentGroupId
+          }))
+        },
+        // Create faculty group connections
+        compulsoryFacultyGroups: {
+          create: facultyGroupIds.map((facultyGroupId: number) => ({
+            facultyGroupId
+          }))
+        },
+        // Create hall group connections
+        compulsoryHallGroups: {
+          create: hallGroupIds.map((hallGroupId: number) => ({
+            hallGroupId,
+            requiredCount: 1 // Default to 1, can be made configurable later
+          }))
+        }
       },
       include: {
         session: true,
@@ -187,6 +247,27 @@ export async function POST(request: NextRequest) {
             Building: true,
             Floor: true,
             shortForm: true
+          }
+        },
+        compulsoryFacultyGroups: {
+          select: {
+            facultyGroup: {
+              select: {
+                id: true,
+                groupName: true
+              }
+            }
+          }
+        },
+        compulsoryHallGroups: {
+          select: {
+            hallGroup: {
+              select: {
+                id: true,
+                groupName: true
+              }
+            },
+            requiredCount: true
           }
         },
         studentEnrollments: {

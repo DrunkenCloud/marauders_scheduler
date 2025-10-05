@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { ApiResponse, Course } from '@/types'
+import { ApiResponse, Course, Faculty, Hall, Student, StudentGroup, FacultyGroup, HallGroup } from '@/types'
 
 interface CourseFormProps {
   course?: Course | null
@@ -20,7 +20,65 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Enrollment state
+  const [selectedFaculty, setSelectedFaculty] = useState<number[]>([])
+  const [selectedHalls, setSelectedHalls] = useState<number[]>([])
+  const [selectedStudents, setSelectedStudents] = useState<number[]>([])
+  const [selectedStudentGroups, setSelectedStudentGroups] = useState<number[]>([])
+  const [selectedFacultyGroups, setSelectedFacultyGroups] = useState<number[]>([])
+  const [selectedHallGroups, setSelectedHallGroups] = useState<number[]>([])
+
+  // Reference data
+  const [faculty, setFaculty] = useState<Faculty[]>([])
+  const [halls, setHalls] = useState<Hall[]>([])
+  const [students, setStudents] = useState<Student[]>([])
+  const [studentGroups, setStudentGroups] = useState<StudentGroup[]>([])
+  const [facultyGroups, setFacultyGroups] = useState<FacultyGroup[]>([])
+  const [hallGroups, setHallGroups] = useState<HallGroup[]>([])
+  const [loadingData, setLoadingData] = useState(false)
+
   const isEditing = !!course
+
+  // Load reference data
+  useEffect(() => {
+    if (!currentSession) return
+
+    const loadReferenceData = async () => {
+      setLoadingData(true)
+      try {
+        const [facultyRes, hallsRes, studentsRes, studentGroupsRes, facultyGroupsRes, hallGroupsRes] = await Promise.all([
+          fetch(`/api/faculty?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`/api/halls?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`/api/students?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`/api/student-groups?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`/api/faculty-groups?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`/api/hall-groups?sessionId=${currentSession.id}&limit=1000`)
+        ])
+
+        const [facultyData, hallsData, studentsData, studentGroupsData, facultyGroupsData, hallGroupsData] = await Promise.all([
+          facultyRes.json(),
+          hallsRes.json(),
+          studentsRes.json(),
+          studentGroupsRes.json(),
+          facultyGroupsRes.json(),
+          hallGroupsRes.json()
+        ])
+
+        if (facultyData.success) setFaculty(facultyData.data.faculty || [])
+        if (hallsData.success) setHalls(hallsData.data.halls || [])
+        if (studentsData.success) setStudents(studentsData.data.students || [])
+        if (studentGroupsData.success) setStudentGroups(studentGroupsData.data.studentGroups || [])
+        if (facultyGroupsData.success) setFacultyGroups(facultyGroupsData.data.facultyGroups || [])
+        if (hallGroupsData.success) setHallGroups(hallGroupsData.data.hallGroups || [])
+      } catch (error) {
+        console.error('Error loading reference data:', error)
+      } finally {
+        setLoadingData(false)
+      }
+    }
+
+    loadReferenceData()
+  }, [currentSession])
 
   useEffect(() => {
     if (course) {
@@ -29,12 +87,28 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
       setClassDuration(course.classDuration)
       setSessionsPerLecture(course.sessionsPerLecture)
       setTotalSessions(course.totalSessions)
+      
+      // Set enrollment selections
+      setSelectedFaculty(course.compulsoryFaculties?.map(f => f.id) || [])
+      setSelectedHalls(course.compulsoryHalls?.map(h => h.id) || [])
+      setSelectedStudents(course.studentEnrollments?.map(e => e.student.id) || [])
+      setSelectedStudentGroups(course.studentGroupEnrollments?.map(e => e.studentGroup.id) || [])
+      setSelectedFacultyGroups(course.compulsoryFacultyGroups?.map(g => g.facultyGroup.id) || [])
+      setSelectedHallGroups(course.compulsoryHallGroups?.map(g => g.hallGroup.id) || [])
     } else {
       setName('')
       setCode('')
       setClassDuration(50)
       setSessionsPerLecture(1)
       setTotalSessions(3)
+      
+      // Reset enrollment selections
+      setSelectedFaculty([])
+      setSelectedHalls([])
+      setSelectedStudents([])
+      setSelectedStudentGroups([])
+      setSelectedFacultyGroups([])
+      setSelectedHallGroups([])
     }
     setError(null)
   }, [course])
@@ -84,7 +158,14 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
         code: code.trim().toUpperCase(),
         classDuration,
         sessionsPerLecture,
-        totalSessions
+        totalSessions,
+        // Enrollment data
+        facultyIds: selectedFaculty,
+        hallIds: selectedHalls,
+        studentIds: selectedStudents,
+        studentGroupIds: selectedStudentGroups,
+        facultyGroupIds: selectedFacultyGroups,
+        hallGroupIds: selectedHallGroups
       }
 
       if (!isEditing) {
@@ -251,6 +332,187 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
           </div>
         </div>
 
+        {/* Enrollment Management */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-gray-900 mb-4">Course Enrollments & Assignments</h4>
+          
+          {loadingData ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span className="text-sm text-gray-500">Loading enrollment options...</span>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Faculty Assignment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assigned Faculty
+                </label>
+                <select
+                  multiple
+                  value={selectedFaculty.map(String)}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    setSelectedFaculty(values)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
+                >
+                  {faculty.map(f => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} {f.shortForm ? `(${f.shortForm})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Hold Ctrl/Cmd to select multiple faculty members who will teach this course
+                </p>
+              </div>
+
+              {/* Faculty Groups */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Faculty Groups
+                </label>
+                <select
+                  multiple
+                  value={selectedFacultyGroups.map(String)}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    setSelectedFacultyGroups(values)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24"
+                >
+                  {facultyGroups.map(group => (
+                    <option key={group.id} value={group.id}>
+                      {group.groupName} ({group._count.facultyMemberships} members)
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Faculty groups that can teach this course
+                </p>
+              </div>
+
+              {/* Hall Assignment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Assigned Halls
+                </label>
+                <select
+                  multiple
+                  value={selectedHalls.map(String)}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    setSelectedHalls(values)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
+                >
+                  {halls.map(hall => (
+                    <option key={hall.id} value={hall.id}>
+                      {hall.name} - {hall.Building} Floor {hall.Floor} {hall.shortForm ? `(${hall.shortForm})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Halls where this course will be conducted
+                </p>
+              </div>
+
+              {/* Hall Groups */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Hall Groups
+                </label>
+                <select
+                  multiple
+                  value={selectedHallGroups.map(String)}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    setSelectedHallGroups(values)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24"
+                >
+                  {hallGroups.map(group => (
+                    <option key={group.id} value={group.id}>
+                      {group.groupName} ({group._count.hallMemberships} halls)
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Hall groups available for this course
+                </p>
+              </div>
+
+              {/* Student Enrollment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Individual Student Enrollments
+                </label>
+                <select
+                  multiple
+                  value={selectedStudents.map(String)}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    setSelectedStudents(values)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
+                >
+                  {students.map(student => (
+                    <option key={student.id} value={student.id}>
+                      Student {student.digitalId}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Individual students enrolled in this course
+                </p>
+              </div>
+
+              {/* Student Group Enrollment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Student Group Enrollments
+                </label>
+                <select
+                  multiple
+                  value={selectedStudentGroups.map(String)}
+                  onChange={(e) => {
+                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    setSelectedStudentGroups(values)
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
+                >
+                  {studentGroups.map(group => (
+                    <option key={group.id} value={group.id}>
+                      {group.groupName} ({group._count.studentMemberships} students)
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Student groups enrolled in this course
+                </p>
+              </div>
+
+              {/* Selection Summary */}
+              {(selectedFaculty.length > 0 || selectedHalls.length > 0 || selectedStudents.length > 0 || selectedStudentGroups.length > 0 || selectedFacultyGroups.length > 0 || selectedHallGroups.length > 0) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h5 className="text-sm font-medium text-blue-900 mb-2">Current Selections</h5>
+                  <div className="text-xs text-blue-800 space-y-1">
+                    {selectedFaculty.length > 0 && <p>• {selectedFaculty.length} faculty member(s) selected</p>}
+                    {selectedFacultyGroups.length > 0 && <p>• {selectedFacultyGroups.length} faculty group(s) selected</p>}
+                    {selectedHalls.length > 0 && <p>• {selectedHalls.length} hall(s) selected</p>}
+                    {selectedHallGroups.length > 0 && <p>• {selectedHallGroups.length} hall group(s) selected</p>}
+                    {selectedStudents.length > 0 && <p>• {selectedStudents.length} individual student(s) enrolled</p>}
+                    {selectedStudentGroups.length > 0 && <p>• {selectedStudentGroups.length} student group(s) enrolled</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Session Info (for new courses) */}
         {!isEditing && currentSession && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -284,6 +546,22 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
               </div>
             )}
 
+            {course.compulsoryFacultyGroups && course.compulsoryFacultyGroups.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-green-900 mb-2">Assigned Faculty Groups</h4>
+                <div className="flex flex-wrap gap-2">
+                  {course.compulsoryFacultyGroups.map((group) => (
+                    <span
+                      key={group.facultyGroup.id}
+                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                    >
+                      {group.facultyGroup.groupName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {course.compulsoryHalls.length > 0 && (
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                 <h4 className="text-sm font-medium text-purple-900 mb-2">Assigned Halls</h4>
@@ -294,6 +572,22 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                       className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
                     >
                       {hall.shortForm || hall.name} ({hall.Building}, Floor {hall.Floor})
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {course.compulsoryHallGroups && course.compulsoryHallGroups.length > 0 && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-purple-900 mb-2">Assigned Hall Groups</h4>
+                <div className="flex flex-wrap gap-2">
+                  {course.compulsoryHallGroups.map((group) => (
+                    <span
+                      key={group.hallGroup.id}
+                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
+                    >
+                      {group.hallGroup.groupName} (Req: {group.requiredCount})
                     </span>
                   ))}
                 </div>

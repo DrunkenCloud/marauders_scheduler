@@ -79,6 +79,34 @@ The College Schedule Maker is a web-based application that allows administrators
 
 ### Requirement 7
 
+**User Story:** As an administrator, I want to manage course enrollments with faculty, halls, students, and groups, so that I can assign resources and participants to courses efficiently.
+
+#### Acceptance Criteria
+
+1. WHEN creating or editing a course THEN the system SHALL allow assignment of faculty members and faculty groups
+2. WHEN creating or editing a course THEN the system SHALL allow assignment of halls and hall groups
+3. WHEN creating or editing a course THEN the system SHALL allow enrollment of individual students and student groups
+4. WHEN assigning hall groups to courses THEN the system SHALL prioritize halls from the same building and floor for proximity
+5. WHEN removing faculty groups from courses THEN the system SHALL not require a specific count constraint
+6. WHEN displaying course information THEN the system SHALL show all assigned resources and enrolled participants
+7. IF a course has no assignments THEN the system SHALL allow scheduling but show warnings about missing resources
+
+### Requirement 8
+
+**User Story:** As an administrator, I want the timetable editor to show only relevant courses for each entity, so that scheduling is contextual and conflict detection is accurate.
+
+#### Acceptance Criteria
+
+1. WHEN editing a faculty timetable THEN the system SHALL show only courses where that faculty is assigned
+2. WHEN editing a hall timetable THEN the system SHALL show only courses where that hall is assigned
+3. WHEN editing a student timetable THEN the system SHALL show only courses where that student is enrolled
+4. WHEN editing group timetables THEN the system SHALL show only courses where that group is assigned or enrolled
+5. WHEN checking scheduling conflicts THEN the system SHALL validate against all related entities (faculty, halls, students from groups)
+6. WHEN selecting halls from hall groups THEN the system SHALL randomly select but prioritize same building then same floor
+7. IF an entity has no course assignments THEN the system SHALL show an appropriate message in the course selector
+
+### Requirement 9
+
 **User Story:** As a future system user, I want the authentication system to support multiple user types, so that students and professors can access their relevant schedule information when implemented.
 
 #### Acceptance Criteria

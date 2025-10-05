@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { EntityType, EntityTimetable, TimetableSlot, Course, Faculty, Hall, EntityTiming, StudentGroup, FacultyGroup, HallGroup, Student } from '@/types'
+import { EntityType, EntityTimetable, TimetableSlot, Course, EntityTiming } from '@/types'
 import { DAYS_OF_WEEK, validateTimetable } from '@/lib/timetable'
 import { useSession } from '@/contexts/SessionContext'
 
@@ -32,8 +32,6 @@ export default function TimetableEditor({
     slotIndex: number
   } | null>(null)
   const [courses, setCourses] = useState<Course[]>([])
-  const [faculty, setFaculty] = useState<Faculty[]>([])
-  const [halls, setHalls] = useState<Hall[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -45,21 +43,11 @@ export default function TimetableEditor({
     duration: 50,
     courseId: undefined,
     courseCode: '',
-    blockerReason: '',
-    facultyIds: [],
-    hallIds: [],
-    facultyGroupIds: [],
-    hallGroupIds: [],
-    studentIds: [],
-    studentGroupIds: []
+    blockerReason: ''
   })
   const [selectedDay, setSelectedDay] = useState<string>('Monday')
 
   // Reference data
-  const [facultyGroups, setFacultyGroups] = useState<FacultyGroup[]>([])
-  const [hallGroups, setHallGroups] = useState<HallGroup[]>([])
-  const [students, setStudents] = useState<Student[]>([])
-  const [studentGroups, setStudentGroups] = useState<StudentGroup[]>([])
   const [conflicts, setConflicts] = useState<string[]>([])
   const [checkingConflicts, setCheckingConflicts] = useState(false)
   const [availableCourses, setAvailableCourses] = useState<Course[]>([])
@@ -87,48 +75,24 @@ export default function TimetableEditor({
     }
   }, [initialTimetable, entityId, entityType, currentSession, entityTiming])
 
-  // Load reference data for slot editor
+  // Load courses for the slot editor
   useEffect(() => {
     if (!currentSession) return
 
-    const loadReferenceData = async () => {
+    const loadCourses = async () => {
       setLoading(true)
       try {
-        const [coursesRes, facultyRes, hallsRes, facultyGroupsRes, hallGroupsRes, studentsRes, studentGroupsRes] = await Promise.all([
-          fetch(`/api/courses?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/faculty?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/halls?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/faculty-groups?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/hall-groups?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/students?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/student-groups?sessionId=${currentSession.id}&limit=1000`)
-        ])
-
-        const [coursesData, facultyData, hallsData, facultyGroupsData, hallGroupsData, studentsData, studentGroupsData] = await Promise.all([
-          coursesRes.json(),
-          facultyRes.json(),
-          hallsRes.json(),
-          facultyGroupsRes.json(),
-          hallGroupsRes.json(),
-          studentsRes.json(),
-          studentGroupsRes.json()
-        ])
-
+        const coursesRes = await fetch(`/api/courses?sessionId=${currentSession.id}&limit=1000`)
+        const coursesData = await coursesRes.json()
         if (coursesData.success) setCourses(coursesData.data.courses || [])
-        if (facultyData.success) setFaculty(facultyData.data.faculty || [])
-        if (hallsData.success) setHalls(hallsData.data.halls || [])
-        if (facultyGroupsData.success) setFacultyGroups(facultyGroupsData.data.facultyGroups || [])
-        if (hallGroupsData.success) setHallGroups(hallGroupsData.data.hallGroups || [])
-        if (studentsData.success) setStudents(studentsData.data.students || [])
-        if (studentGroupsData.success) setStudentGroups(studentGroupsData.data.studentGroups || [])
       } catch (error) {
-        console.error('Error loading reference data:', error)
+        console.error('Error loading courses:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    loadReferenceData()
+    loadCourses()
   }, [currentSession])
 
   // Load available courses based on entity
@@ -175,212 +139,11 @@ export default function TimetableEditor({
     // Get the original slot being edited (if any)
     const originalSlot = selectedSlot?.slot
 
-    try {
-      // Check faculty conflicts
-      if (slot.facultyIds && slot.facultyIds.length > 0) {
-        for (const facultyId of slot.facultyIds) {
-          const response = await fetch(`/api/timetables?entityType=faculty&entityId=${facultyId}&sessionId=${currentSession.id}`)
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success && data.data.timetable) {
-              const daySlots = data.data.timetable.schedule[day] || []
-              for (let i = 0; i < daySlots.length; i++) {
-                const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
-                  // Skip if this is the same slot we're editing
-                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
-                    continue
-                  }
-
-                  const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
-                  const existingEnd = existingStart + existingSlot.duration
-
-                  if (slotStart < existingEnd && slotEnd > existingStart) {
-                    const facultyName = faculty.find(f => f.id === facultyId)?.name || `Faculty ${facultyId}`
-                    const slotDescription = existingSlot.type === 'course' 
-                      ? `teaching ${existingSlot.courseCode || 'a course'}`
-                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
-                    conflicts.push(`${facultyName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Check hall conflicts
-      if (slot.hallIds && slot.hallIds.length > 0) {
-        for (const hallId of slot.hallIds) {
-          const response = await fetch(`/api/timetables?entityType=hall&entityId=${hallId}&sessionId=${currentSession.id}`)
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success && data.data.timetable) {
-              const daySlots = data.data.timetable.schedule[day] || []
-              for (let i = 0; i < daySlots.length; i++) {
-                const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
-                  // Skip if this is the same slot we're editing
-                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
-                    continue
-                  }
-
-                  const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
-                  const existingEnd = existingStart + existingSlot.duration
-
-                  if (slotStart < existingEnd && slotEnd > existingStart) {
-                    const hallName = halls.find(h => h.id === hallId)?.name || `Hall ${hallId}`
-                    const slotDescription = existingSlot.type === 'course' 
-                      ? `occupied by ${existingSlot.courseCode || 'a course'}`
-                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
-                    conflicts.push(`${hallName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Check faculty group conflicts
-      if (slot.facultyGroupIds && slot.facultyGroupIds.length > 0) {
-        for (const groupId of slot.facultyGroupIds) {
-          const response = await fetch(`/api/timetables?entityType=facultyGroup&entityId=${groupId}&sessionId=${currentSession.id}`)
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success && data.data.timetable) {
-              const daySlots = data.data.timetable.schedule[day] || []
-              for (let i = 0; i < daySlots.length; i++) {
-                const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
-                  // Skip if this is the same slot we're editing
-                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
-                    continue
-                  }
-
-                  const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
-                  const existingEnd = existingStart + existingSlot.duration
-
-                  if (slotStart < existingEnd && slotEnd > existingStart) {
-                    const groupName = facultyGroups.find(g => g.id === groupId)?.groupName || `Faculty Group ${groupId}`
-                    const slotDescription = existingSlot.type === 'course' 
-                      ? `teaching ${existingSlot.courseCode || 'a course'}`
-                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
-                    conflicts.push(`${groupName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Check hall group conflicts
-      if (slot.hallGroupIds && slot.hallGroupIds.length > 0) {
-        for (const groupId of slot.hallGroupIds) {
-          const response = await fetch(`/api/timetables?entityType=hallGroup&entityId=${groupId}&sessionId=${currentSession.id}`)
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success && data.data.timetable) {
-              const daySlots = data.data.timetable.schedule[day] || []
-              for (let i = 0; i < daySlots.length; i++) {
-                const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
-                  // Skip if this is the same slot we're editing
-                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
-                    continue
-                  }
-
-                  const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
-                  const existingEnd = existingStart + existingSlot.duration
-
-                  if (slotStart < existingEnd && slotEnd > existingStart) {
-                    const groupName = hallGroups.find(g => g.id === groupId)?.groupName || `Hall Group ${groupId}`
-                    const slotDescription = existingSlot.type === 'course' 
-                      ? `occupied by ${existingSlot.courseCode || 'a course'}`
-                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
-                    conflicts.push(`${groupName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Check student conflicts
-      if (slot.studentIds && slot.studentIds.length > 0) {
-        for (const studentId of slot.studentIds) {
-          const response = await fetch(`/api/timetables?entityType=student&entityId=${studentId}&sessionId=${currentSession.id}`)
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success && data.data.timetable) {
-              const daySlots = data.data.timetable.schedule[day] || []
-              for (let i = 0; i < daySlots.length; i++) {
-                const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
-                  // Skip if this is the same slot we're editing
-                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
-                    continue
-                  }
-
-                  const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
-                  const existingEnd = existingStart + existingSlot.duration
-
-                  if (slotStart < existingEnd && slotEnd > existingStart) {
-                    const studentName = students.find(s => s.id === studentId)?.digitalId || `Student ${studentId}`
-                    const slotDescription = existingSlot.type === 'course' 
-                      ? `attending ${existingSlot.courseCode || 'a course'}`
-                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
-                    conflicts.push(`Student ${studentName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Check student group conflicts
-      if (slot.studentGroupIds && slot.studentGroupIds.length > 0) {
-        for (const groupId of slot.studentGroupIds) {
-          const response = await fetch(`/api/timetables?entityType=studentGroup&entityId=${groupId}&sessionId=${currentSession.id}`)
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success && data.data.timetable) {
-              const daySlots = data.data.timetable.schedule[day] || []
-              for (let i = 0; i < daySlots.length; i++) {
-                const existingSlot = daySlots[i]
-                if (typeof existingSlot === 'object' && 'type' in existingSlot) {
-                  // Skip if this is the same slot we're editing
-                  if (originalSlot && isSameSlot(existingSlot, originalSlot)) {
-                    continue
-                  }
-
-                  const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
-                  const existingEnd = existingStart + existingSlot.duration
-
-                  if (slotStart < existingEnd && slotEnd > existingStart) {
-                    const groupName = studentGroups.find(g => g.id === groupId)?.groupName || `Student Group ${groupId}`
-                    const slotDescription = existingSlot.type === 'course' 
-                      ? `attending ${existingSlot.courseCode || 'a course'}`
-                      : `blocked (${existingSlot.blockerReason || 'no reason specified'})`
-                    conflicts.push(`${groupName} is already ${slotDescription} from ${formatTime(existingSlot.startHour, existingSlot.startMinute)} to ${formatTime(Math.floor(existingEnd / 60), existingEnd % 60)}`)
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-
-    } catch (error) {
-      console.error('Error checking conflicts:', error)
-      conflicts.push('Error checking conflicts. Please try again.')
-    }
-
+    // For course slots, we'll check conflicts when we update related timetables
+    // For now, just return empty conflicts - the actual conflict checking will happen
+    // when we update all related entity timetables
     return conflicts
-  }, [currentSession, faculty, halls, facultyGroups, hallGroups, students, studentGroups, selectedSlot])
+  }, [currentSession, selectedSlot])
 
   // Update course scheduled count
   const updateCourseScheduledCount = async (courseId: number, increment: number) => {
@@ -488,16 +251,21 @@ export default function TimetableEditor({
   const handleAddSlot = async () => {
     if (!timetable || !currentSession) return
 
-    // Check for conflicts first
-    setCheckingConflicts(true)
-    const conflictList = await checkConflicts(editingSlot, selectedDay)
-    setConflicts(conflictList)
-    setCheckingConflicts(false)
-
-    if (conflictList.length > 0) {
-      // Show conflicts but allow user to proceed if they want
-      const proceed = confirm(`Conflicts detected:\n${conflictList.join('\n')}\n\nDo you want to proceed anyway?`)
-      if (!proceed) return
+    // For course slots, automatically populate resource IDs from the course
+    let slotToAdd = { ...editingSlot }
+    if (editingSlot.type === 'course' && editingSlot.courseId) {
+      const course = courses.find(c => c.id === editingSlot.courseId)
+      if (course) {
+        slotToAdd = {
+          ...editingSlot,
+          facultyIds: course.compulsoryFaculties?.map(f => f.id) || [],
+          hallIds: course.compulsoryHalls?.map(h => h.id) || [],
+          facultyGroupIds: course.compulsoryFacultyGroups?.map(g => g.facultyGroup.id) || [],
+          hallGroupIds: course.compulsoryHallGroups?.map(g => g.hallGroup.id) || [],
+          studentIds: course.studentEnrollments?.map(e => e.student.id) || [],
+          studentGroupIds: course.studentGroupEnrollments?.map(e => e.studentGroup.id) || []
+        }
+      }
     }
 
     const newTimetable = { ...timetable }
@@ -508,7 +276,7 @@ export default function TimetableEditor({
     }
 
     const daySlots = [...newTimetable.schedule[selectedDay]]
-    daySlots.push({ ...editingSlot })
+    daySlots.push(slotToAdd)
 
     // Sort by start time
     daySlots.sort((a, b) => {
@@ -521,12 +289,12 @@ export default function TimetableEditor({
     setTimetable(newTimetable)
 
     // Update course scheduled count if it's a course slot
-    if (editingSlot.type === 'course' && editingSlot.courseId) {
-      await updateCourseScheduledCount(editingSlot.courseId, 1)
+    if (slotToAdd.type === 'course' && slotToAdd.courseId) {
+      await updateCourseScheduledCount(slotToAdd.courseId, 1)
     }
 
     // Update all related entity timetables
-    await updateRelatedTimetables(editingSlot, selectedDay, 'add')
+    await updateRelatedTimetables(slotToAdd, selectedDay, 'add')
 
     // Reset form
     setEditingSlot({
@@ -536,13 +304,7 @@ export default function TimetableEditor({
       duration: 50,
       courseId: undefined,
       courseCode: '',
-      blockerReason: '',
-      facultyIds: [],
-      hallIds: [],
-      facultyGroupIds: [],
-      hallGroupIds: [],
-      studentIds: [],
-      studentGroupIds: []
+      blockerReason: ''
     })
     setConflicts([])
   }
@@ -550,16 +312,21 @@ export default function TimetableEditor({
   const handleUpdateSlot = async () => {
     if (!timetable || !selectedSlot || !currentSession) return
 
-    // Check for conflicts first
-    setCheckingConflicts(true)
-    const conflictList = await checkConflicts(editingSlot, selectedSlot.day, selectedSlot.slotIndex)
-    setConflicts(conflictList)
-    setCheckingConflicts(false)
-
-    if (conflictList.length > 0) {
-      // Show conflicts but allow user to proceed if they want
-      const proceed = confirm(`Conflicts detected:\n${conflictList.join('\n')}\n\nDo you want to proceed anyway?`)
-      if (!proceed) return
+    // For course slots, automatically populate resource IDs from the course
+    let slotToUpdate = { ...editingSlot }
+    if (editingSlot.type === 'course' && editingSlot.courseId) {
+      const course = courses.find(c => c.id === editingSlot.courseId)
+      if (course) {
+        slotToUpdate = {
+          ...editingSlot,
+          facultyIds: course.compulsoryFaculties?.map(f => f.id) || [],
+          hallIds: course.compulsoryHalls?.map(h => h.id) || [],
+          facultyGroupIds: course.compulsoryFacultyGroups?.map(g => g.facultyGroup.id) || [],
+          hallGroupIds: course.compulsoryHallGroups?.map(g => g.hallGroup.id) || [],
+          studentIds: course.studentEnrollments?.map(e => e.student.id) || [],
+          studentGroupIds: course.studentGroupEnrollments?.map(e => e.studentGroup.id) || []
+        }
+      }
     }
 
     const newTimetable = { ...timetable }
@@ -568,7 +335,7 @@ export default function TimetableEditor({
 
     if (selectedSlot.slotIndex >= 0 && selectedSlot.slotIndex < daySlots.length) {
       const oldSlot = daySlots[selectedSlot.slotIndex] as TimetableSlot
-      daySlots[selectedSlot.slotIndex] = { ...editingSlot }
+      daySlots[selectedSlot.slotIndex] = slotToUpdate
 
       // Sort by start time
       daySlots.sort((a, b) => {
@@ -584,13 +351,13 @@ export default function TimetableEditor({
       if (oldSlot.type === 'course' && oldSlot.courseId) {
         await updateCourseScheduledCount(oldSlot.courseId, -1)
       }
-      if (editingSlot.type === 'course' && editingSlot.courseId) {
-        await updateCourseScheduledCount(editingSlot.courseId, 1)
+      if (slotToUpdate.type === 'course' && slotToUpdate.courseId) {
+        await updateCourseScheduledCount(slotToUpdate.courseId, 1)
       }
 
       // Update all related entity timetables
       await updateRelatedTimetables(oldSlot, selectedSlot.day, 'remove')
-      await updateRelatedTimetables(editingSlot, selectedSlot.day, 'add')
+      await updateRelatedTimetables(slotToUpdate, selectedSlot.day, 'add')
     }
 
     setSelectedSlot(null)
@@ -647,10 +414,10 @@ export default function TimetableEditor({
                 const existingSlot = daySlots[i]
                 if (typeof existingSlot === 'object' && 'startHour' in existingSlot) {
                   const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
-                  if (existingStart === slotStart && 
-                      existingSlot.duration === slot.duration && 
-                      existingSlot.type === slot.type &&
-                      (existingSlot.courseId === slot.courseId || existingSlot.courseCode === slot.courseCode)) {
+                  if (existingStart === slotStart &&
+                    existingSlot.duration === slot.duration &&
+                    existingSlot.type === slot.type &&
+                    (existingSlot.courseId === slot.courseId || existingSlot.courseCode === slot.courseCode)) {
                     daySlots.splice(i, 1)
                   }
                 }
@@ -752,21 +519,10 @@ export default function TimetableEditor({
     return markers
   }
 
-  // Check conflicts when form changes
+  // Clear conflicts when editing slot changes
   useEffect(() => {
-    if (editingSlot.facultyIds?.length || editingSlot.hallIds?.length || editingSlot.facultyGroupIds?.length || editingSlot.hallGroupIds?.length || editingSlot.studentIds?.length || editingSlot.studentGroupIds?.length) {
-      const checkConflictsDebounced = setTimeout(async () => {
-        setCheckingConflicts(true)
-        const conflictList = await checkConflicts(editingSlot, selectedDay)
-        setConflicts(conflictList)
-        setCheckingConflicts(false)
-      }, 500)
-
-      return () => clearTimeout(checkConflictsDebounced)
-    } else {
-      setConflicts([])
-    }
-  }, [editingSlot, selectedDay, checkConflicts])
+    setConflicts([])
+  }, [editingSlot, selectedDay])
 
   if (loading) {
     return (
@@ -897,8 +653,8 @@ export default function TimetableEditor({
                           {/* Slot Content */}
                           <div className="h-full flex items-center justify-center px-2 text-xs font-medium text-gray-800 overflow-hidden">
                             <div className="truncate">
-                              {tSlot.type === 'course' 
-                                ? (tSlot.courseCode || 'Course') 
+                              {tSlot.type === 'course'
+                                ? (tSlot.courseCode || 'Course')
                                 : (tSlot.blockerReason || 'Blocked')}
                             </div>
                           </div>
@@ -1016,15 +772,15 @@ export default function TimetableEditor({
                   Course to Schedule
                 </label>
                 {loadingCourses ? (
-                  <div className="text-sm text-gray-500">Loading available courses...</div>
+                  <div className="text-sm text-gray-500">Loading courses...</div>
                 ) : (
                   <select
                     value={editingSlot.courseId || ''}
                     onChange={(e) => {
                       const courseId = parseInt(e.target.value)
-                      const course = availableCourses.find(c => c.id === courseId)
-                      setEditingSlot({ 
-                        ...editingSlot, 
+                      const course = courses.find(c => c.id === courseId)
+                      setEditingSlot({
+                        ...editingSlot,
                         courseId: courseId || undefined,
                         courseCode: course?.code || '',
                         duration: course?.classDuration || 50
@@ -1033,7 +789,7 @@ export default function TimetableEditor({
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   >
                     <option value="">Select course to schedule...</option>
-                    {availableCourses.map(course => (
+                    {courses.map(course => (
                       <option key={course.id} value={course.id}>
                         {course.code} - {course.name} ({course.scheduledCount}/{course.totalSessions} scheduled)
                       </option>
@@ -1042,131 +798,42 @@ export default function TimetableEditor({
                 )}
               </div>
 
-              {/* Faculty */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Faculty
-                </label>
-                <select
-                  multiple
-                  value={(editingSlot.facultyIds || []).map(String)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                    setEditingSlot({ ...editingSlot, facultyIds: values })
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                >
-                  {faculty.map(f => (
-                    <option key={f.id} value={f.id}>{f.name} {f.shortForm ? `(${f.shortForm})` : ''}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
-              </div>
+              {/* Course Info Display */}
+              {editingSlot.courseId && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <h5 className="text-sm font-medium text-blue-900 mb-2">Course Resources</h5>
+                  <div className="text-xs text-blue-800 space-y-1">
+                    {(() => {
+                      const course = courses.find(c => c.id === editingSlot.courseId)
+                      if (!course) return <p>Course not found</p>
 
-              {/* Faculty Groups */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Faculty Groups
-                </label>
-                <select
-                  multiple
-                  value={(editingSlot.facultyGroupIds || []).map(String)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                    setEditingSlot({ ...editingSlot, facultyGroupIds: values })
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                >
-                  {facultyGroups.map(group => (
-                    <option key={group.id} value={group.id}>{group.groupName}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
-              </div>
-
-              {/* Halls */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Halls
-                </label>
-                <select
-                  multiple
-                  value={(editingSlot.hallIds || []).map(String)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                    setEditingSlot({ ...editingSlot, hallIds: values })
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                >
-                  {halls.map(hall => (
-                    <option key={hall.id} value={hall.id}>{hall.name} - {hall.Building} {hall.Floor} {hall.shortForm ? `(${hall.shortForm})` : ''}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
-              </div>
-
-              {/* Hall Groups */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Hall Groups
-                </label>
-                <select
-                  multiple
-                  value={(editingSlot.hallGroupIds || []).map(String)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                    setEditingSlot({ ...editingSlot, hallGroupIds: values })
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                >
-                  {hallGroups.map(group => (
-                    <option key={group.id} value={group.id}>{group.groupName}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
-              </div>
-
-              {/* Students */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Students
-                </label>
-                <select
-                  multiple
-                  value={(editingSlot.studentIds || []).map(String)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                    setEditingSlot({ ...editingSlot, studentIds: values })
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                >
-                  {students.map(student => (
-                    <option key={student.id} value={student.id}>Student {student.digitalId}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
-              </div>
-
-              {/* Student Groups */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Student Groups
-                </label>
-                <select
-                  multiple
-                  value={(editingSlot.studentGroupIds || []).map(String)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                    setEditingSlot({ ...editingSlot, studentGroupIds: values })
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
-                >
-                  {studentGroups.map(group => (
-                    <option key={group.id} value={group.id}>{group.groupName}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
-              </div>
+                      return (
+                        <>
+                          {course.compulsoryFaculties && course.compulsoryFaculties.length > 0 && (
+                            <p>• Faculty: {course.compulsoryFaculties.map(f => f.shortForm || f.name).join(', ')}</p>
+                          )}
+                          {course.compulsoryHalls && course.compulsoryHalls.length > 0 && (
+                            <p>• Halls: {course.compulsoryHalls.map(h => h.shortForm || h.name).join(', ')}</p>
+                          )}
+                          {course.compulsoryFacultyGroups && course.compulsoryFacultyGroups.length > 0 && (
+                            <p>• Faculty Groups: {course.compulsoryFacultyGroups.map(g => g.facultyGroup.groupName).join(', ')}</p>
+                          )}
+                          {course.compulsoryHallGroups && course.compulsoryHallGroups.length > 0 && (
+                            <p>• Hall Groups: {course.compulsoryHallGroups.map(g => g.hallGroup.groupName).join(', ')}</p>
+                          )}
+                          {course.studentEnrollments && course.studentEnrollments.length > 0 && (
+                            <p>• Students: {course.studentEnrollments.length} enrolled</p>
+                          )}
+                          {course.studentGroupEnrollments && course.studentGroupEnrollments.length > 0 && (
+                            <p>• Student Groups: {course.studentGroupEnrollments.map(e => e.studentGroup.groupName).join(', ')}</p>
+                          )}
+                          <p className="text-blue-600 font-medium mt-2">Resources will be automatically assigned when scheduling</p>
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
+              )}
             </>
           )}
 

@@ -9,7 +9,7 @@ export async function GET(
   try {
     const { id: idParam } = await params
     const id = parseInt(idParam)
-    
+
     if (isNaN(id)) {
       const response: ApiResponse = {
         success: false,
@@ -40,6 +40,27 @@ export async function GET(
             Building: true,
             Floor: true,
             shortForm: true
+          }
+        },
+        compulsoryFacultyGroups: {
+          select: {
+            facultyGroup: {
+              select: {
+                id: true,
+                groupName: true
+              }
+            }
+          }
+        },
+        compulsoryHallGroups: {
+          select: {
+            hallGroup: {
+              select: {
+                id: true,
+                groupName: true
+              }
+            },
+            requiredCount: true
           }
         },
         studentEnrollments: {
@@ -85,7 +106,7 @@ export async function GET(
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error fetching course:', error)
-    
+
     const response: ApiResponse = {
       success: false,
       error: {
@@ -107,8 +128,21 @@ export async function PUT(
     const { id: idParam } = await params
     const id = parseInt(idParam)
     const body = await request.json()
-    const { name, code, classDuration, sessionsPerLecture, totalSessions, timetable } = body
-    
+    const {
+      name,
+      code,
+      classDuration,
+      sessionsPerLecture,
+      totalSessions,
+      timetable,
+      facultyIds,
+      hallIds,
+      studentIds,
+      studentGroupIds,
+      facultyGroupIds,
+      hallGroupIds
+    } = body
+
     if (isNaN(id)) {
       const response: ApiResponse = {
         success: false,
@@ -122,7 +156,7 @@ export async function PUT(
     }
 
     const updateData: any = {}
-    
+
     if (name !== undefined) {
       if (!name.trim()) {
         const response: ApiResponse = {
@@ -137,7 +171,7 @@ export async function PUT(
       }
       updateData.name = name.trim()
     }
-    
+
     if (code !== undefined) {
       if (!code.trim()) {
         const response: ApiResponse = {
@@ -152,7 +186,7 @@ export async function PUT(
       }
       updateData.code = code.trim().toUpperCase()
     }
-    
+
     if (classDuration !== undefined) {
       const duration = parseInt(classDuration)
       if (isNaN(duration) || duration < 1) {
@@ -168,7 +202,7 @@ export async function PUT(
       }
       updateData.classDuration = duration
     }
-    
+
     if (sessionsPerLecture !== undefined) {
       const sessions = parseInt(sessionsPerLecture)
       if (isNaN(sessions) || sessions < 1) {
@@ -184,7 +218,7 @@ export async function PUT(
       }
       updateData.sessionsPerLecture = sessions
     }
-    
+
     if (totalSessions !== undefined) {
       const total = parseInt(totalSessions)
       if (isNaN(total) || total < 1) {
@@ -200,14 +234,107 @@ export async function PUT(
       }
       updateData.totalSessions = total
     }
-    
+
     if (timetable !== undefined) {
       updateData.timetable = timetable
     }
 
+    // Handle enrollment updates
+    if (facultyIds !== undefined) {
+      updateData.compulsoryFaculties = {
+        set: facultyIds.map((id: number) => ({ id }))
+      }
+    }
+
+    if (hallIds !== undefined) {
+      updateData.compulsoryHalls = {
+        set: hallIds.map((id: number) => ({ id }))
+      }
+    }
+
+    // For student enrollments, we need to handle them separately due to the junction table
+    let studentEnrollmentUpdates = {}
+    if (studentIds !== undefined) {
+      // Delete existing enrollments and create new ones
+      await prisma.courseStudentEnrollment.deleteMany({
+        where: { courseId: id }
+      })
+
+      if (studentIds.length > 0) {
+        studentEnrollmentUpdates = {
+          studentEnrollments: {
+            create: studentIds.map((studentId: number) => ({
+              studentId
+            }))
+          }
+        }
+      }
+    }
+
+    // Handle student group enrollments
+    let studentGroupEnrollmentUpdates = {}
+    if (studentGroupIds !== undefined) {
+      await prisma.courseStudentGroupEnrollment.deleteMany({
+        where: { courseId: id }
+      })
+
+      if (studentGroupIds.length > 0) {
+        studentGroupEnrollmentUpdates = {
+          studentGroupEnrollments: {
+            create: studentGroupIds.map((studentGroupId: number) => ({
+              studentGroupId
+            }))
+          }
+        }
+      }
+    }
+
+    // Handle faculty group connections
+    let facultyGroupUpdates = {}
+    if (facultyGroupIds !== undefined) {
+      await prisma.compulsoryFacultyGroup.deleteMany({
+        where: { courseId: id }
+      })
+
+      if (facultyGroupIds.length > 0) {
+        facultyGroupUpdates = {
+          compulsoryFacultyGroups: {
+            create: facultyGroupIds.map((facultyGroupId: number) => ({
+              facultyGroupId
+            }))
+          }
+        }
+      }
+    }
+
+    // Handle hall group connections
+    let hallGroupUpdates = {}
+    if (hallGroupIds !== undefined) {
+      await prisma.compulsoryHallGroup.deleteMany({
+        where: { courseId: id }
+      })
+
+      if (hallGroupIds.length > 0) {
+        hallGroupUpdates = {
+          compulsoryHallGroups: {
+            create: hallGroupIds.map((hallGroupId: number) => ({
+              hallGroupId,
+              requiredCount: 1 // Default to 1, can be made configurable later
+            }))
+          }
+        }
+      }
+    }
+
     const course = await prisma.course.update({
       where: { id },
-      data: updateData,
+      data: {
+        ...updateData,
+        ...studentEnrollmentUpdates,
+        ...studentGroupEnrollmentUpdates,
+        ...facultyGroupUpdates,
+        ...hallGroupUpdates
+      },
       include: {
         session: true,
         compulsoryFaculties: {
@@ -224,6 +351,27 @@ export async function PUT(
             Building: true,
             Floor: true,
             shortForm: true
+          }
+        },
+        compulsoryFacultyGroups: {
+          select: {
+            facultyGroup: {
+              select: {
+                id: true,
+                groupName: true
+              }
+            }
+          }
+        },
+        compulsoryHallGroups: {
+          select: {
+            hallGroup: {
+              select: {
+                id: true,
+                groupName: true
+              }
+            },
+            requiredCount: true
           }
         },
         studentEnrollments: {
@@ -257,7 +405,7 @@ export async function PUT(
     return NextResponse.json(response)
   } catch (error: any) {
     console.error('Error updating course:', error)
-    
+
     let errorMessage = 'Failed to update course'
     if (error.code === 'P2002') {
       errorMessage = 'A course with this code already exists'
@@ -285,7 +433,7 @@ export async function DELETE(
   try {
     const { id: idParam } = await params
     const id = parseInt(idParam)
-    
+
     if (isNaN(id)) {
       const response: ApiResponse = {
         success: false,
@@ -333,7 +481,7 @@ export async function DELETE(
     return NextResponse.json(response)
   } catch (error: any) {
     console.error('Error deleting course:', error)
-    
+
     let errorMessage = 'Failed to delete course'
     if (error.code === 'P2025') {
       errorMessage = 'Course not found'
