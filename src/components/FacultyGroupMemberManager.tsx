@@ -52,7 +52,8 @@ export function FacultyGroupMemberManager({
       const facultyResponse = await fetch(`/api/faculty?sessionId=${sessionId}`)
       if (facultyResponse.ok) {
         const facultyData = await facultyResponse.json()
-        setAvailableFaculty(facultyData.data.faculties || [])
+        console.log(facultyData);
+        setAvailableFaculty(facultyData.data.faculty || [])
       }
     } catch (error) {
       console.error('Error loading data:', error)
