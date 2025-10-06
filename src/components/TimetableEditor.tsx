@@ -445,18 +445,30 @@ export default function TimetableEditor({
     }
   }
 
-  const handleSlotDelete = (day: string, slotIndex: number) => {
-    if (!timetable) return
+  const handleSlotDelete = async (day: string, slotIndex: number) => {
+    if (!timetable || !currentSession) return
 
+    const daySlots = [...(timetable.schedule[day] || [])]
+    
+    if (slotIndex < 0 || slotIndex >= daySlots.length) return
+
+    const slotToDelete = daySlots[slotIndex] as TimetableSlot
+
+    // Update course scheduled count if it's a course slot
+    if (slotToDelete.type === 'course' && slotToDelete.courseId) {
+      await updateCourseScheduledCount(slotToDelete.courseId, -1)
+    }
+
+    // Remove from all related entity timetables
+    await updateRelatedTimetables(slotToDelete, day, 'remove')
+
+    // Remove from current timetable
     const newTimetable = { ...timetable }
     newTimetable.schedule = { ...timetable.schedule }
-    const daySlots = [...(newTimetable.schedule[day] || [])]
-
-    if (slotIndex >= 0 && slotIndex < daySlots.length) {
-      daySlots.splice(slotIndex, 1)
-      newTimetable.schedule[day] = daySlots
-      setTimetable(newTimetable)
-    }
+    const updatedDaySlots = [...daySlots]
+    updatedDaySlots.splice(slotIndex, 1)
+    newTimetable.schedule[day] = updatedDaySlots
+    setTimetable(newTimetable)
 
     // Clear selection if deleted slot was selected
     if (selectedSlot && selectedSlot.day === day && selectedSlot.slotIndex === slotIndex) {
@@ -663,9 +675,9 @@ export default function TimetableEditor({
                           {!readOnly && (
                             <button
                               className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.stopPropagation()
-                                handleSlotDelete(day, slotIndex)
+                                await handleSlotDelete(day, slotIndex)
                               }}
                             >
                               ×
