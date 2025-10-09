@@ -149,7 +149,8 @@ export async function POST(request: NextRequest) {
       studentIds = [],
       studentGroupIds = [],
       facultyGroupIds = [],
-      hallGroupIds = []
+      hallGroupIds = [],
+      hallGroups = []
     } = body
 
     if (!name || !code || !sessionId) {
@@ -225,9 +226,9 @@ export async function POST(request: NextRequest) {
         },
         // Create hall group connections
         compulsoryHallGroups: {
-          create: hallGroupIds.map((hallGroupId: number) => ({
-            hallGroupId,
-            requiredCount: 1 // Default to 1, can be made configurable later
+          create: (hallGroups.length > 0 ? hallGroups : hallGroupIds.map((id: number) => ({ id, requiredCount: 1 }))).map((group: any) => ({
+            hallGroupId: group.id || group,
+            requiredCount: group.requiredCount || 1
           }))
         }
       },

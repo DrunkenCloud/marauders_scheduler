@@ -176,6 +176,10 @@ interface TimetableEngine {
   copyTimetableToGroupMembers(groupId: number, groupType: EntityType, allowExceptions: boolean): Promise<void>
   copyTimetableBetweenGroups(sourceGroupId: number, targetGroupId: number, groupType: EntityType): Promise<void>
   
+  // Course scheduling synchronization
+  updateRelatedGroupTimetables(courseSlot: TimetableSlot, day: string, action: 'add' | 'remove' | 'update'): Promise<void>
+  syncCourseScheduleToGroups(courseId: number, facultyGroupIds: number[], studentGroupIds: number[]): Promise<void>
+  
   // Session operations
   copySessionData(sourceSessionId: number, targetSessionId: number): Promise<void>
   
@@ -231,18 +235,23 @@ interface ConflictResult {
 #### Group Management Interface
 - **Group Creation**: Forms for student groups, faculty groups, hall groups
 - **Member Management**: Add/remove members from groups
+- **Group Timetable Access**: "View/Edit Group Timetable" button for each group
 - **Timetable Operations**: 
   - "Create Group Timetable" button
   - "Apply to All Members" button
   - "Copy from Another Group" dropdown
   - Exception handling for individual members
 
-#### Timetable Editor
+#### Enhanced Timetable Editor
 - **Manual Slot Editor**: Click-to-edit individual slots
+- **Automatic Course Synchronization**: Real-time updates to related group timetables when scheduling courses
+- **Slot Type Indicators**: Visual distinction between course slots (auto-synced) and manual slots
+- **Group Timetable View**: Dedicated interface for viewing and editing group timetables
 - **Slot Fragmentation**: Split larger slots into smaller fragments
 - **Visual Grid**: Day/time grid with color-coded status
 - **Bulk Operations**: Select multiple slots for batch editing
 - **Copy/Paste**: Timetable copying between entities
+- **Sync Status Indicators**: Show synchronization status for group updates
 
 #### Session Management
 - **Session Creator**: Form with timing configuration
@@ -266,39 +275,45 @@ ALTER TABLE "Course" ADD COLUMN "sessionsPerLecture" INTEGER DEFAULT 1;    -- co
 ALTER TABLE "Course" ADD COLUMN "totalSessions" INTEGER DEFAULT 3;         -- total sessions per week
 ```
 
-### Timetable JSON Structure
-Standardized slot-based format for all entities with flexible slot durations:
+### Enhanced Timetable JSON Structure
+Standardized slot-based format for all entities with flexible slot durations and group synchronization support:
 ```json
 {
   "Monday": [
-    [0],                                           // Free slot
-    [1, "08:10", 50, "CS101", "LECTURE", 101, 5], // Occupied: status, startTime, duration, course, type, hall, faculty
-    [0],                                           // Free slot  
-    [1, "09:40", 30, "MATH202", "LAB", 205, 12],  // Occupied: 30-minute lab session
-    [0]                                            // Free slot
+    [0],                                                    // Free slot
+    [1, "08:10", 50, "CS101", "LECTURE", 101, 5, "auto"], // Auto-synced course slot
+    [0],                                                    // Free slot  
+    [1, "09:40", 30, "MATH202", "LAB", 205, 12, "auto"],  // Auto-synced lab session
+    [1, "11:00", 20, "", "MEETING", 0, 0, "manual"]       // Manual slot (group-specific)
   ],
   "Tuesday": [
     [0], 
     [0], 
-    [1, "10:10", 50, "CHEM301", "LECTURE", 301, 8], 
+    [1, "10:10", 50, "CHEM301", "LECTURE", 301, 8, "auto"], 
     [0], 
-    [1, "14:00", 20, "PHYS201", "TUTORIAL", 105, 3]  // 20-minute tutorial
+    [1, "14:00", 20, "PHYS201", "TUTORIAL", 105, 3, "auto"]
   ],
   "Wednesday": [
     [0], 
-    [1, "08:40", 50, "CS101", "LECTURE", 101, 5],     // First session of consecutive pair
-    [1, "09:30", 50, "CS101", "LECTURE", 101, 5],     // Second consecutive session
-    [0], 
+    [1, "08:40", 50, "CS101", "LECTURE", 101, 5, "auto"],     // First session of consecutive pair
+    [1, "09:30", 50, "CS101", "LECTURE", 101, 5, "auto"],     // Second consecutive session
+    [1, "13:00", 60, "", "BREAK", 0, 0, "manual"],            // Manual break slot
     [0]
   ],
   "Thursday": [[0], [0], [0], [0], [0]],
   "Friday": [
-    [1, "08:10", 100, "CS101", "LAB", 102, 5],        // 100-minute lab session
+    [1, "08:10", 100, "CS101", "LAB", 102, 5, "auto"],        // 100-minute lab session
     [0], 
     [0], 
     [0]
   ]
 }
+```
+
+**Slot Format Enhancement:**
+- **Index 7**: Slot source type ("auto" for course-synced slots, "manual" for group-specific slots)
+- **Auto Slots**: Automatically synchronized from course scheduling
+- **Manual Slots**: Group-specific slots (meetings, breaks) that don't propagate to members
 ```
 
 ### Slot Fragmentation Logic
@@ -308,12 +323,37 @@ For flexible slot management with duration mismatches:
 3. **Manual Override**: Allow admins to manually adjust slot boundaries and durations
 4. **Visual Indicators**: Show fragmented slots with different visual styling
 
-### Group Timetable Operations
+### Enhanced Group Timetable Operations
+
+#### Core Group Operations
 1. **Group Timetable Creation**: Create base timetable for entire group
 2. **Member Inheritance**: Copy group timetable to all group members
 3. **Exception Handling**: Allow individual members to have different timetables
 4. **Group Copying**: Copy entire timetable from one group to another
 5. **Bulk Updates**: Apply changes to all group members simultaneously
+
+#### Automatic Course Synchronization
+6. **Real-time Course Sync**: When courses are scheduled in any entity timetable, automatically update related group timetables
+7. **Bidirectional Updates**: Course slot changes (add/remove/update) sync across all related group timetables
+8. **Selective Group Updates**: Only update faculty groups and student groups (not hall groups) for course scheduling
+9. **Conflict Resolution**: Handle scheduling conflicts during automatic synchronization with error logging
+
+#### Group Timetable Management
+10. **Independent Group Viewing**: Each group has its own viewable and editable timetable interface
+11. **Slot Type Distinction**: Visual indicators to distinguish auto-synced course slots from manual group slots
+12. **Manual Group Slots**: Allow adding group-specific slots (meetings, breaks) that don't propagate to members
+13. **Sync Status Tracking**: Display synchronization status and any failed updates in the UI
+
+#### Synchronization Flow
+```mermaid
+graph TD
+    A[Course Scheduled in Entity Timetable] --> B[Identify Related Groups]
+    B --> C[Update Faculty Group Timetables]
+    B --> D[Update Student Group Timetables]
+    C --> E[Log Success/Errors]
+    D --> E
+    E --> F[Update UI with Sync Status]
+```
 
 ### Entity-Specific Validation Rules
 - **Students**: All slots must be defined (0 or [1+, ...])

@@ -26,7 +26,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
   const [selectedStudents, setSelectedStudents] = useState<number[]>([])
   const [selectedStudentGroups, setSelectedStudentGroups] = useState<number[]>([])
   const [selectedFacultyGroups, setSelectedFacultyGroups] = useState<number[]>([])
-  const [selectedHallGroups, setSelectedHallGroups] = useState<number[]>([])
+  const [selectedHallGroups, setSelectedHallGroups] = useState<{id: number, requiredCount: number}[]>([])
 
   // Reference data
   const [faculty, setFaculty] = useState<Faculty[]>([])
@@ -67,9 +67,9 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
         if (facultyData.success) setFaculty(facultyData.data.faculty || [])
         if (hallsData.success) setHalls(hallsData.data.halls || [])
         if (studentsData.success) setStudents(studentsData.data.students || [])
-        if (studentGroupsData.success) setStudentGroups(studentGroupsData.data.studentGroups || [])
-        if (facultyGroupsData.success) setFacultyGroups(facultyGroupsData.data.facultyGroups || [])
-        if (hallGroupsData.success) setHallGroups(hallGroupsData.data.hallGroups || [])
+        if (studentGroupsData.success) setStudentGroups(studentGroupsData.data || [])
+        if (facultyGroupsData.success) setFacultyGroups(facultyGroupsData.data || [])
+        if (hallGroupsData.success) setHallGroups(hallGroupsData.data || [])
       } catch (error) {
         console.error('Error loading reference data:', error)
       } finally {
@@ -94,7 +94,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
       setSelectedStudents(course.studentEnrollments?.map(e => e.student.id) || [])
       setSelectedStudentGroups(course.studentGroupEnrollments?.map(e => e.studentGroup.id) || [])
       setSelectedFacultyGroups(course.compulsoryFacultyGroups?.map(g => g.facultyGroup.id) || [])
-      setSelectedHallGroups(course.compulsoryHallGroups?.map(g => g.hallGroup.id) || [])
+      setSelectedHallGroups(course.compulsoryHallGroups?.map(g => ({id: g.hallGroup.id, requiredCount: g.requiredCount})) || [])
     } else {
       setName('')
       setCode('')
@@ -165,7 +165,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
         studentIds: selectedStudents,
         studentGroupIds: selectedStudentGroups,
         facultyGroupIds: selectedFacultyGroups,
-        hallGroupIds: selectedHallGroups
+        hallGroups: selectedHallGroups
       }
 
       if (!isEditing) {
@@ -384,14 +384,21 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24"
                 >
-                  {facultyGroups.map(group => (
-                    <option key={group.id} value={group.id}>
-                      {group.groupName} ({group._count.facultyMemberships} members)
-                    </option>
-                  ))}
+                  {facultyGroups.length === 0 ? (
+                    <option disabled>No faculty groups available - create some first</option>
+                  ) : (
+                    facultyGroups.map(group => (
+                      <option key={group.id} value={group.id}>
+                        {group.groupName} ({group._count.facultyMemberships} members)
+                      </option>
+                    ))
+                  )}
                 </select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Faculty groups that can teach this course
+                  {facultyGroups.length === 0 
+                    ? 'No faculty groups available. Create faculty groups first to assign them to courses.'
+                    : 'Faculty groups that can teach this course'
+                  }
                 </p>
               </div>
 
@@ -424,24 +431,94 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Hall Groups
+                  {hallGroups.length > 0 && (
+                    <span className="ml-2 text-xs text-green-600">({hallGroups.length} available)</span>
+                  )}
                 </label>
-                <select
-                  multiple
-                  value={selectedHallGroups.map(String)}
-                  onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
-                    setSelectedHallGroups(values)
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24"
-                >
-                  {hallGroups.map(group => (
-                    <option key={group.id} value={group.id}>
-                      {group.groupName} ({group._count.hallMemberships} halls)
-                    </option>
-                  ))}
-                </select>
+                
+                {hallGroups.length === 0 ? (
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 text-sm">
+                    No hall groups available - create some first
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Selected Hall Groups */}
+                    {selectedHallGroups.length > 0 && (
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                        <h5 className="text-sm font-medium text-purple-900 mb-2">Selected Hall Groups:</h5>
+                        <div className="space-y-2">
+                          {selectedHallGroups.map((selection, index) => {
+                            const group = hallGroups.find(g => g.id === selection.id)
+                            return (
+                              <div key={selection.id} className="flex items-center gap-3 bg-white p-2 rounded border">
+                                <span className="flex-1 text-sm font-medium">
+                                  {group?.groupName} ({group?._count.hallMemberships} halls)
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <label className="text-xs text-gray-600">Required:</label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max={group?._count.hallMemberships || 1}
+                                    value={selection.requiredCount}
+                                    onChange={(e) => {
+                                      const newCount = parseInt(e.target.value) || 1
+                                      const newSelections = [...selectedHallGroups]
+                                      newSelections[index] = { ...selection, requiredCount: newCount }
+                                      setSelectedHallGroups(newSelections)
+                                    }}
+                                    className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newSelections = selectedHallGroups.filter((_, i) => i !== index)
+                                      setSelectedHallGroups(newSelections)
+                                    }}
+                                    className="text-red-600 hover:text-red-800 text-xs px-2 py-1 rounded hover:bg-red-50"
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Add Hall Group */}
+                    <div>
+                      <select
+                        value=""
+                        onChange={(e) => {
+                          const groupId = parseInt(e.target.value)
+                          if (groupId && !selectedHallGroups.find(s => s.id === groupId)) {
+                            setSelectedHallGroups([...selectedHallGroups, { id: groupId, requiredCount: 1 }])
+                          }
+                          e.target.value = ""
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="">+ Add Hall Group</option>
+                        {hallGroups
+                          .filter(group => !selectedHallGroups.find(s => s.id === group.id))
+                          .map(group => (
+                            <option key={group.id} value={group.id}>
+                              {group.groupName} ({group._count.hallMemberships} halls available)
+                            </option>
+                          ))
+                        }
+                      </select>
+                    </div>
+                  </div>
+                )}
+                
                 <p className="text-xs text-gray-500 mt-1">
-                  Hall groups available for this course
+                  {hallGroups.length === 0 
+                    ? 'No hall groups available. Create hall groups first to assign them to courses.'
+                    : 'Select hall groups and specify how many halls are required from each group'
+                  }
                 </p>
               </div>
 

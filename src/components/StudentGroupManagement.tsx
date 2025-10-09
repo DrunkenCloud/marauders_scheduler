@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { StudentGroup, StudentGroupFormData } from '@/types'
+import { StudentGroup, StudentGroupFormData, EntityType } from '@/types'
 import { StudentGroupForm } from './StudentGroupForm'
 import { StudentGroupList } from './StudentGroupList'
 import { StudentGroupMemberManager } from './StudentGroupMemberManager'
+import TimetableManagement from './TimetableManagement'
 
 export function StudentGroupManagement() {
   const { currentSession } = useSession()
@@ -14,6 +15,7 @@ export function StudentGroupManagement() {
   const [showForm, setShowForm] = useState(false)
   const [editingGroup, setEditingGroup] = useState<StudentGroup | null>(null)
   const [managingGroup, setManagingGroup] = useState<StudentGroup | null>(null)
+  const [viewingTimetable, setViewingTimetable] = useState<StudentGroup | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -77,17 +79,21 @@ export function StudentGroupManagement() {
     setManagingGroup(group)
   }
 
+  const handleViewTimetable = (group: StudentGroup) => {
+    setViewingTimetable(group)
+  }
+
   const handleFormSubmit = async (formData: StudentGroupFormData) => {
     if (!currentSession) return
 
     setIsSubmitting(true)
     try {
-      const url = editingGroup 
+      const url = editingGroup
         ? `/api/student-groups/${editingGroup.id}`
         : '/api/student-groups'
-      
+
       const method = editingGroup ? 'PUT' : 'POST'
-      
+
       const response = await fetch(url, {
         method,
         headers: {
@@ -124,6 +130,10 @@ export function StudentGroupManagement() {
     loadGroups()
   }
 
+  const handleBackFromTimetable = () => {
+    setViewingTimetable(null)
+  }
+
   if (!currentSession) {
     return (
       <div className="text-center py-8">
@@ -132,57 +142,69 @@ export function StudentGroupManagement() {
     )
   }
 
+  // Show timetable view if a group is selected for timetable viewing
+  if (viewingTimetable) {
+    return (
+      <TimetableManagement
+        entityId={viewingTimetable.id}
+        entityType={EntityType.STUDENT_GROUP}
+        entityName={viewingTimetable.groupName}
+        onBack={handleBackFromTimetable}
+      />
+    )
+  }
+
   return (
     <div className="flex-1 p-6 bg-gray-50">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Student Groups</h1>
-          <p className="text-gray-600">
-            Manage student groups for {currentSession.name}
-          </p>
-        </div>
-        <button
-          onClick={handleCreateGroup}
-          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Create Student Group
-        </button>
-      </div>
-
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-lg font-semibold mb-4">
-              {editingGroup ? 'Edit Student Group' : 'Create Student Group'}
-            </h2>
-            <StudentGroupForm
-              onSubmit={handleFormSubmit}
-              onCancel={handleFormCancel}
-              initialData={editingGroup ? {
-                groupName: editingGroup.groupName,
-                startHour: editingGroup.startHour,
-                startMinute: editingGroup.startMinute,
-                endHour: editingGroup.endHour,
-                endMinute: editingGroup.endMinute
-              } : undefined}
-              isLoading={isSubmitting}
-            />
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Student Groups</h1>
+            <p className="text-gray-600">
+              Manage student groups for {currentSession.name}
+            </p>
           </div>
+          <button
+            onClick={handleCreateGroup}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Create Student Group
+          </button>
         </div>
-      )}
 
-      {/* Member Manager Modal */}
-      {managingGroup && currentSession && (
-        <StudentGroupMemberManager
-          group={managingGroup}
-          sessionId={currentSession.id}
-          onClose={() => setManagingGroup(null)}
-          onMembersUpdated={handleMembersUpdated}
-        />
-      )}
+        {/* Form Modal */}
+        {showForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6">
+              <h2 className="text-lg font-semibold mb-4">
+                {editingGroup ? 'Edit Student Group' : 'Create Student Group'}
+              </h2>
+              <StudentGroupForm
+                onSubmit={handleFormSubmit}
+                onCancel={handleFormCancel}
+                initialData={editingGroup ? {
+                  groupName: editingGroup.groupName,
+                  startHour: editingGroup.startHour,
+                  startMinute: editingGroup.startMinute,
+                  endHour: editingGroup.endHour,
+                  endMinute: editingGroup.endMinute
+                } : undefined}
+                isLoading={isSubmitting}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Member Manager Modal */}
+        {managingGroup && currentSession && (
+          <StudentGroupMemberManager
+            group={managingGroup}
+            sessionId={currentSession.id}
+            onClose={() => setManagingGroup(null)}
+            onMembersUpdated={handleMembersUpdated}
+          />
+        )}
 
         {/* Groups List */}
         <StudentGroupList
@@ -190,6 +212,7 @@ export function StudentGroupManagement() {
           onEdit={handleEditGroup}
           onDelete={handleDeleteGroup}
           onManageMembers={handleManageMembers}
+          onViewTimetable={handleViewTimetable}
           isLoading={isLoading}
         />
       </div>

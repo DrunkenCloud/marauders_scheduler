@@ -140,7 +140,8 @@ export async function PUT(
       studentIds,
       studentGroupIds,
       facultyGroupIds,
-      hallGroupIds
+      hallGroupIds,
+      hallGroups
     } = body
 
     if (isNaN(id)) {
@@ -309,17 +310,19 @@ export async function PUT(
 
     // Handle hall group connections
     let hallGroupUpdates = {}
-    if (hallGroupIds !== undefined) {
+    if (hallGroupIds !== undefined || hallGroups !== undefined) {
       await prisma.compulsoryHallGroup.deleteMany({
         where: { courseId: id }
       })
 
-      if (hallGroupIds.length > 0) {
+      const groupsToCreate = hallGroups || hallGroupIds?.map((id: number) => ({ id, requiredCount: 1 })) || []
+      
+      if (groupsToCreate.length > 0) {
         hallGroupUpdates = {
           compulsoryHallGroups: {
-            create: hallGroupIds.map((hallGroupId: number) => ({
-              hallGroupId,
-              requiredCount: 1 // Default to 1, can be made configurable later
+            create: groupsToCreate.map((group: any) => ({
+              hallGroupId: group.id || group,
+              requiredCount: group.requiredCount || 1
             }))
           }
         }

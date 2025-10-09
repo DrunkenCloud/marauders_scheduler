@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { HallGroup, HallGroupFormData } from '@/types'
+import { HallGroup, HallGroupFormData, EntityType } from '@/types'
 import { HallGroupForm } from './HallGroupForm'
 import { HallGroupList } from './HallGroupList'
 import { HallGroupMemberManager } from './HallGroupMemberManager'
+import TimetableManagement from './TimetableManagement'
 
 export function HallGroupManagement() {
   const { currentSession } = useSession()
@@ -14,6 +15,7 @@ export function HallGroupManagement() {
   const [showForm, setShowForm] = useState(false)
   const [editingGroup, setEditingGroup] = useState<HallGroup | null>(null)
   const [managingGroup, setManagingGroup] = useState<HallGroup | null>(null)
+  const [viewingTimetable, setViewingTimetable] = useState<HallGroup | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -77,6 +79,10 @@ export function HallGroupManagement() {
     setManagingGroup(group)
   }
 
+  const handleViewTimetable = (group: HallGroup) => {
+    setViewingTimetable(group)
+  }
+
   const handleFormSubmit = async (formData: HallGroupFormData) => {
     if (!currentSession) return
 
@@ -124,11 +130,27 @@ export function HallGroupManagement() {
     loadGroups()
   }
 
+  const handleBackFromTimetable = () => {
+    setViewingTimetable(null)
+  }
+
   if (!currentSession) {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">Please select a session to manage hall groups.</p>
       </div>
+    )
+  }
+
+  // Show timetable view if a group is selected for timetable viewing
+  if (viewingTimetable) {
+    return (
+      <TimetableManagement
+        entityId={viewingTimetable.id}
+        entityType={EntityType.HALL_GROUP}
+        entityName={viewingTimetable.groupName}
+        onBack={handleBackFromTimetable}
+      />
     )
   }
 
@@ -190,6 +212,7 @@ export function HallGroupManagement() {
           onEdit={handleEditGroup}
           onDelete={handleDeleteGroup}
           onManageMembers={handleManageMembers}
+          onViewTimetable={handleViewTimetable}
           isLoading={isLoading}
         />
       </div>

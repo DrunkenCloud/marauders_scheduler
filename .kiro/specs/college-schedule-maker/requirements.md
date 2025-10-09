@@ -107,6 +107,34 @@ The College Schedule Maker is a web-based application that allows administrators
 
 ### Requirement 9
 
+**User Story:** As an administrator, I want group timetables to be automatically updated when courses are scheduled, so that all related entities maintain synchronized schedules without manual intervention.
+
+#### Acceptance Criteria
+
+1. WHEN a course is scheduled in the timetable editor THEN the system SHALL automatically add the same time slot to all related group timetables
+2. WHEN scheduling a course with faculty groups THEN the system SHALL update the timetables of all assigned faculty groups
+3. WHEN scheduling a course with student groups THEN the system SHALL update the timetables of all enrolled student groups
+4. WHEN a course slot is removed from any entity THEN the system SHALL automatically remove the corresponding slots from all related group timetables
+5. WHEN updating a course slot time or duration THEN the system SHALL synchronize the changes across all related group timetables
+6. WHEN viewing group timetables THEN the system SHALL display all automatically scheduled course slots alongside manually added slots
+7. IF a group timetable update fails THEN the system SHALL log the error but continue updating other related timetables
+
+### Requirement 10
+
+**User Story:** As an administrator, I want to view and manage group timetables independently, so that I can understand group schedules and make group-level scheduling decisions.
+
+#### Acceptance Criteria
+
+1. WHEN navigating to student groups THEN the system SHALL provide access to view and edit each group's timetable
+2. WHEN navigating to faculty groups THEN the system SHALL provide access to view and edit each group's timetable  
+3. WHEN viewing a group timetable THEN the system SHALL display both automatically scheduled course slots and manually added slots
+4. WHEN editing a group timetable THEN the system SHALL allow adding manual time slots (blockers, meetings, etc.) that don't affect individual members
+5. WHEN adding manual slots to group timetables THEN the system SHALL NOT automatically propagate these to individual member timetables
+6. WHEN displaying group timetables THEN the system SHALL use visual indicators to distinguish between course slots and manual slots
+7. IF a group has no timetable data THEN the system SHALL initialize an empty timetable structure for editing
+
+### Requirement 11
+
 **User Story:** As a future system user, I want the authentication system to support multiple user types, so that students and professors can access their relevant schedule information when implemented.
 
 #### Acceptance Criteria

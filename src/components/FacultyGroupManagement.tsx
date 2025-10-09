@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
-import { FacultyGroup, FacultyGroupFormData } from '@/types'
+import { FacultyGroup, FacultyGroupFormData, EntityType } from '@/types'
 import { FacultyGroupForm } from './FacultyGroupForm'
 import { FacultyGroupList } from './FacultyGroupList'
 import { FacultyGroupMemberManager } from './FacultyGroupMemberManager'
+import TimetableManagement from './TimetableManagement'
 
 export function FacultyGroupManagement() {
   const { currentSession } = useSession()
@@ -14,6 +15,7 @@ export function FacultyGroupManagement() {
   const [showForm, setShowForm] = useState(false)
   const [editingGroup, setEditingGroup] = useState<FacultyGroup | null>(null)
   const [managingGroup, setManagingGroup] = useState<FacultyGroup | null>(null)
+  const [viewingTimetable, setViewingTimetable] = useState<FacultyGroup | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
@@ -77,6 +79,10 @@ export function FacultyGroupManagement() {
     setManagingGroup(group)
   }
 
+  const handleViewTimetable = (group: FacultyGroup) => {
+    setViewingTimetable(group)
+  }
+
   const handleFormSubmit = async (formData: FacultyGroupFormData) => {
     if (!currentSession) return
 
@@ -124,11 +130,27 @@ export function FacultyGroupManagement() {
     loadGroups()
   }
 
+  const handleBackFromTimetable = () => {
+    setViewingTimetable(null)
+  }
+
   if (!currentSession) {
     return (
       <div className="text-center py-8">
         <p className="text-gray-500">Please select a session to manage faculty groups.</p>
       </div>
+    )
+  }
+
+  // Show timetable view if a group is selected for timetable viewing
+  if (viewingTimetable) {
+    return (
+      <TimetableManagement
+        entityId={viewingTimetable.id}
+        entityType={EntityType.FACULTY_GROUP}
+        entityName={viewingTimetable.groupName}
+        onBack={handleBackFromTimetable}
+      />
     )
   }
 
@@ -190,6 +212,7 @@ export function FacultyGroupManagement() {
           onEdit={handleEditGroup}
           onDelete={handleDeleteGroup}
           onManageMembers={handleManageMembers}
+          onViewTimetable={handleViewTimetable}
           isLoading={isLoading}
         />
       </div>

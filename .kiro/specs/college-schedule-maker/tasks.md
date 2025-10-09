@@ -127,21 +127,35 @@
     - Implement "Create Group Timetable" functionality with base template
     - Create group timetable editor with same interface as individual entities
     - Add group timetable validation and save operations
-    - _Requirements: 4.1, 4.4, 5.3_
+    - _Requirements: 10.1, 10.2, 10.3, 10.7_
 
-  - [ ] 7.2 Implement timetable inheritance and member operations
+  - [ ] 7.2 Implement automatic course scheduling synchronization
+    - Create updateRelatedGroupTimetables function to sync course slots to group timetables
+    - Implement automatic group timetable updates when courses are scheduled in TimetableEditor
+    - Build error handling for failed group timetable updates with logging
+    - Add visual indicators in group timetables to distinguish course slots from manual slots
+    - _Requirements: 9.1, 9.2, 9.3, 9.6, 9.7_
+
+  - [ ] 7.3 Implement timetable inheritance and member operations
     - Create "Apply to All Members" functionality for group timetable distribution
     - Implement exception handling for individual member timetable differences
     - Build member timetable override system with conflict detection
     - Add bulk member timetable operations and rollback capabilities
-    - _Requirements: 4.2, 4.4, 5.3_
+    - _Requirements: 10.4, 10.5_
 
-  - [ ] 7.3 Build timetable copying between groups
+  - [ ] 7.4 Build timetable copying between groups
     - Implement "Copy from Another Group" functionality with source selection
     - Create timetable copying interface with preview and confirmation
     - Build group-to-group timetable migration with member handling
     - Add copy operation validation and error handling
-    - _Requirements: 4.4, 5.3_
+    - _Requirements: 10.4_
+
+  - [ ] 7.5 Implement group timetable synchronization for course updates
+    - Create syncCourseScheduleToGroups function for bulk course-to-group synchronization
+    - Implement automatic removal of course slots from group timetables when courses are unscheduled
+    - Build course slot update synchronization across all related group timetables
+    - Add conflict detection and resolution for group timetable synchronization
+    - _Requirements: 9.4, 9.5_
 
 - [ ] 8. Implement session data operations
   - [ ] 8.1 Create session data copying functionality
@@ -178,14 +192,16 @@
     - Create CRUD endpoints for faculty groups (/api/faculty-groups)
     - Build CRUD endpoints for hall groups (/api/hall-groups)
     - Add member management endpoints for all group types
-    - _Requirements: 5.2, 6.2, 6.4_
+    - Add group timetable endpoints for viewing and editing group schedules
+    - _Requirements: 5.2, 6.2, 6.4, 10.1, 10.2_
 
   - [ ] 9.4 Create timetable management API endpoints
-    - Implement timetable CRUD endpoints for all entity types
-    - Create group timetable operations endpoints
+    - Implement timetable CRUD endpoints for all entity types including groups
+    - Create group timetable operations endpoints with automatic synchronization
     - Build timetable copying and inheritance endpoints
     - Add timetable validation and conflict checking endpoints
-    - _Requirements: 3.4, 4.4, 6.1, 6.5_
+    - Implement course scheduling synchronization endpoints for group updates
+    - _Requirements: 3.4, 4.4, 6.1, 6.5, 9.1, 9.2, 9.3_
 
   - [ ] 9.5 Create session management API endpoints
     - Implement session CRUD endpoints (/api/sessions)

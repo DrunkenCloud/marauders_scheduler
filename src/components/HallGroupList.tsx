@@ -8,10 +8,11 @@ interface HallGroupListProps {
   onEdit: (group: HallGroup) => void
   onDelete: (group: HallGroup) => void
   onManageMembers: (group: HallGroup) => void
+  onViewTimetable: (group: HallGroup) => void
   isLoading?: boolean
 }
 
-export function HallGroupList({ groups, onEdit, onDelete, onManageMembers, isLoading }: HallGroupListProps) {
+export function HallGroupList({ groups, onEdit, onDelete, onManageMembers, onViewTimetable, isLoading }: HallGroupListProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<'groupName' | 'memberCount' | 'createdAt'>('groupName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -153,6 +154,12 @@ export function HallGroupList({ groups, onEdit, onDelete, onManageMembers, isLoa
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      onClick={() => onViewTimetable(group)}
+                      className="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                    >
+                      View Timetable
+                    </button>
                     <button
                       onClick={() => onManageMembers(group)}
                       className="px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

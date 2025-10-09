@@ -209,64 +209,178 @@ export default function CourseList({ onCourseSelect, onCreateNew, refreshTrigger
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {course.compulsoryFaculties.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {course.compulsoryFaculties.slice(0, 2).map((faculty) => (
-                                  <span
-                                    key={faculty.id}
-                                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
-                                  >
-                                    {faculty.shortForm || faculty.name}
+                            <div className="space-y-2">
+                              {/* Faculty Count Summary */}
+                              <div className="flex items-center gap-2">
+                                {course.compulsoryFaculties.length > 0 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    👤 {course.compulsoryFaculties.length} faculty
                                   </span>
-                                ))}
-                                {course.compulsoryFaculties.length > 2 && (
-                                  <span className="text-xs text-gray-500">
-                                    +{course.compulsoryFaculties.length - 2} more
+                                )}
+                                {course.compulsoryFacultyGroups && course.compulsoryFacultyGroups.length > 0 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-200 text-green-900 border border-green-300">
+                                    📋 {course.compulsoryFacultyGroups.length} groups
                                   </span>
                                 )}
                               </div>
-                            ) : (
-                              <span className="text-gray-500 text-xs">No faculty assigned</span>
-                            )}
+                              
+                              {/* Individual Faculty Names (first 2) */}
+                              {course.compulsoryFaculties.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {course.compulsoryFaculties.slice(0, 2).map((faculty) => (
+                                    <span
+                                      key={faculty.id}
+                                      className="text-xs text-gray-600"
+                                    >
+                                      {faculty.shortForm || faculty.name}
+                                    </span>
+                                  ))}
+                                  {course.compulsoryFaculties.length > 2 && (
+                                    <span className="text-xs text-gray-500">
+                                      +{course.compulsoryFaculties.length - 2} more
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Faculty Group Names (first 2) */}
+                              {course.compulsoryFacultyGroups && course.compulsoryFacultyGroups.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {course.compulsoryFacultyGroups.slice(0, 2).map((group) => (
+                                    <span
+                                      key={group.facultyGroup.id}
+                                      className="text-xs text-gray-600"
+                                    >
+                                      📋 {group.facultyGroup.groupName}
+                                    </span>
+                                  ))}
+                                  {course.compulsoryFacultyGroups.length > 2 && (
+                                    <span className="text-xs text-gray-500">
+                                      +{course.compulsoryFacultyGroups.length - 2} more groups
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* No assignments */}
+                              {course.compulsoryFaculties.length === 0 && 
+                               (!course.compulsoryFacultyGroups || course.compulsoryFacultyGroups.length === 0) && (
+                                <span className="text-gray-500 text-xs">No faculty assigned</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {course.compulsoryHalls.length > 0 ? (
-                              <div className="flex flex-wrap gap-1">
-                                {course.compulsoryHalls.slice(0, 2).map((hall) => (
-                                  <span
-                                    key={hall.id}
-                                    className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
-                                  >
-                                    {hall.shortForm || hall.name}
+                            <div className="space-y-2">
+                              {/* Halls Count Summary */}
+                              <div className="flex items-center gap-2">
+                                {course.compulsoryHalls.length > 0 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    🏛️ {course.compulsoryHalls.length} halls
                                   </span>
-                                ))}
-                                {course.compulsoryHalls.length > 2 && (
-                                  <span className="text-xs text-gray-500">
-                                    +{course.compulsoryHalls.length - 2} more
+                                )}
+                                {course.compulsoryHallGroups && course.compulsoryHallGroups.length > 0 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-200 text-purple-900 border border-purple-300">
+                                    🏢 {course.compulsoryHallGroups.length} groups
                                   </span>
                                 )}
                               </div>
-                            ) : (
-                              <span className="text-gray-500 text-xs">No halls assigned</span>
-                            )}
+                              
+                              {/* Individual Hall Names (first 2) */}
+                              {course.compulsoryHalls.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {course.compulsoryHalls.slice(0, 2).map((hall) => (
+                                    <span
+                                      key={hall.id}
+                                      className="text-xs text-gray-600"
+                                    >
+                                      {hall.shortForm || hall.name}
+                                    </span>
+                                  ))}
+                                  {course.compulsoryHalls.length > 2 && (
+                                    <span className="text-xs text-gray-500">
+                                      +{course.compulsoryHalls.length - 2} more
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Hall Group Names (first 2) */}
+                              {course.compulsoryHallGroups && course.compulsoryHallGroups.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {course.compulsoryHallGroups.slice(0, 2).map((group) => (
+                                    <span
+                                      key={group.hallGroup.id}
+                                      className="text-xs text-gray-600"
+                                    >
+                                      🏢 {group.hallGroup.groupName} (req: {group.requiredCount})
+                                    </span>
+                                  ))}
+                                  {course.compulsoryHallGroups.length > 2 && (
+                                    <span className="text-xs text-gray-500">
+                                      +{course.compulsoryHallGroups.length - 2} more groups
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* No assignments */}
+                              {course.compulsoryHalls.length === 0 && 
+                               (!course.compulsoryHallGroups || course.compulsoryHallGroups.length === 0) && (
+                                <span className="text-gray-500 text-xs">No halls assigned</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {course.studentEnrollments.length + course.studentGroupEnrollments.length > 0 ? (
-                              <div>
-                                <div className="text-xs text-gray-600">
-                                  {course.studentEnrollments.length} students
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {course.studentGroupEnrollments.length} groups
-                                </div>
+                            <div className="space-y-2">
+                              {/* Enrollment Count Summary */}
+                              <div className="flex items-center gap-2">
+                                {course.studentEnrollments.length > 0 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    👤 {course.studentEnrollments.length} students
+                                  </span>
+                                )}
+                                {course.studentGroupEnrollments.length > 0 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-200 text-blue-900 border border-blue-300">
+                                    👥 {course.studentGroupEnrollments.length} groups
+                                  </span>
+                                )}
                               </div>
-                            ) : (
-                              <span className="text-gray-500 text-xs">No enrollments</span>
-                            )}
+                              
+                              {/* Student Group Names (first 2) */}
+                              {course.studentGroupEnrollments.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                  {course.studentGroupEnrollments.slice(0, 2).map((enrollment) => (
+                                    <span
+                                      key={enrollment.studentGroup.id}
+                                      className="text-xs text-gray-600"
+                                    >
+                                      👥 {enrollment.studentGroup.groupName}
+                                    </span>
+                                  ))}
+                                  {course.studentGroupEnrollments.length > 2 && (
+                                    <span className="text-xs text-gray-500">
+                                      +{course.studentGroupEnrollments.length - 2} more groups
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {/* Total enrollment summary */}
+                              {(course.studentEnrollments.length > 0 || course.studentGroupEnrollments.length > 0) && (
+                                <div className="text-xs text-gray-500">
+                                  Total: {course.studentEnrollments.length + course.studentGroupEnrollments.length} enrollments
+                                </div>
+                              )}
+                              
+                              {/* No enrollments */}
+                              {course.studentEnrollments.length === 0 && course.studentGroupEnrollments.length === 0 && (
+                                <span className="text-gray-500 text-xs">No enrollments</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

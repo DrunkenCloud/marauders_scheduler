@@ -8,10 +8,11 @@ interface StudentGroupListProps {
   onEdit: (group: StudentGroup) => void
   onDelete: (group: StudentGroup) => void
   onManageMembers: (group: StudentGroup) => void
+  onViewTimetable: (group: StudentGroup) => void
   isLoading?: boolean
 }
 
-export function StudentGroupList({ groups, onEdit, onDelete, onManageMembers, isLoading }: StudentGroupListProps) {
+export function StudentGroupList({ groups, onEdit, onDelete, onManageMembers, onViewTimetable, isLoading }: StudentGroupListProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<'groupName' | 'memberCount' | 'createdAt'>('groupName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
@@ -139,6 +140,12 @@ export function StudentGroupList({ groups, onEdit, onDelete, onManageMembers, is
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    onClick={() => onViewTimetable(group)}
+                    className="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  >
+                    View Timetable
+                  </button>
                   <button
                     onClick={() => onManageMembers(group)}
                     className="px-3 py-1.5 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
