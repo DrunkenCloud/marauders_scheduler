@@ -127,23 +127,127 @@ export default function TimetableEditor({
     const slotStart = slot.startHour * 60 + slot.startMinute
     const slotEnd = slotStart + slot.duration
 
-    // Helper function to check if a slot is the same as the one being edited
-    const isSameSlot = (existingSlot: any, originalSlot: TimetableSlot) => {
-      return existingSlot.startHour === originalSlot.startHour &&
-        existingSlot.startMinute === originalSlot.startMinute &&
-        existingSlot.duration === originalSlot.duration &&
-        existingSlot.type === originalSlot.type &&
-        (existingSlot.courseId === originalSlot.courseId || existingSlot.courseCode === originalSlot.courseCode)
+    // Helper function to check if two time slots overlap
+    const slotsOverlap = (slot1Start: number, slot1End: number, slot2Start: number, slot2End: number) => {
+      return slot1Start < slot2End && slot1End > slot2Start
     }
 
-    // Get the original slot being edited (if any)
-    const originalSlot = selectedSlot?.slot
+    // Helper function to format time for display
+    const formatTime = (hour: number, minute: number) => {
+      return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+    }
 
-    // For course slots, we'll check conflicts when we update related timetables
-    // For now, just return empty conflicts - the actual conflict checking will happen
-    // when we update all related entity timetables
+    // Get all entity IDs that would be affected by this slot
+    const allEntityIds = [
+      ...(slot.facultyIds || []).map(id => ({ type: 'faculty', id })),
+      ...(slot.hallIds || []).map(id => ({ type: 'hall', id })),
+      ...(slot.facultyGroupIds || []).map(id => ({ type: 'facultyGroup', id })),
+      ...(slot.hallGroupIds || []).map(id => ({ type: 'hallGroup', id })),
+      ...(slot.studentIds || []).map(id => ({ type: 'student', id })),
+      ...(slot.studentGroupIds || []).map(id => ({ type: 'studentGroup', id }))
+    ]
+
+    // Check conflicts for each related entity
+    for (const entity of allEntityIds) {
+      try {
+        const response = await fetch(`/api/timetables?entityType=${entity.type}&entityId=${entity.id}&sessionId=${currentSession.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data.timetable) {
+            const entityTimetable = data.data.timetable
+            const daySlots = entityTimetable.schedule[day] || []
+
+            // Check each existing slot for conflicts
+            for (let i = 0; i < daySlots.length; i++) {
+              const existingSlot = daySlots[i]
+
+              // Skip if this is the slot we're currently editing
+              if (entityType === entity.type && entityId === entity.id && excludeSlotIndex === i) {
+                continue
+              }
+
+              if (typeof existingSlot === 'object' && 'startHour' in existingSlot) {
+                const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
+                const existingEnd = existingStart + existingSlot.duration
+
+                // Check for time overlap
+                if (slotsOverlap(slotStart, slotEnd, existingStart, existingEnd)) {
+                  const entityName = await getEntityName(entity.type, entity.id)
+                  const conflictTime = `${formatTime(existingSlot.startHour, existingSlot.startMinute)} - ${formatTime(
+                    Math.floor(existingEnd / 60),
+                    existingEnd % 60
+                  )}`
+
+                  let conflictDescription = ''
+                  if (existingSlot.type === 'course') {
+                    conflictDescription = existingSlot.courseCode || 'Course'
+                  } else if (existingSlot.type === 'blocker') {
+                    conflictDescription = existingSlot.blockerReason || 'Blocked time'
+                  }
+
+                  conflicts.push(`${entityName} is already scheduled: ${conflictDescription} (${conflictTime})`)
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error checking conflicts for ${entity.type} ${entity.id}:`, error)
+      }
+    }
+
     return conflicts
-  }, [currentSession, selectedSlot])
+  }, [currentSession, entityType, entityId])
+
+  // Helper function to get entity name for conflict messages
+  const getEntityName = async (entityType: string, entityId: number): Promise<string> => {
+    try {
+      let endpoint = ''
+      switch (entityType) {
+        case 'faculty':
+          endpoint = `/api/faculty/${entityId}`
+          break
+        case 'hall':
+          endpoint = `/api/halls/${entityId}`
+          break
+        case 'student':
+          endpoint = `/api/students/${entityId}`
+          break
+        case 'facultyGroup':
+          endpoint = `/api/faculty-groups/${entityId}`
+          break
+        case 'hallGroup':
+          endpoint = `/api/hall-groups/${entityId}`
+          break
+        case 'studentGroup':
+          endpoint = `/api/student-groups/${entityId}`
+          break
+        default:
+          return `${entityType} ${entityId}`
+      }
+
+      const response = await fetch(endpoint)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data) {
+          const entity = data.data
+          if (entityType.includes('Group')) {
+            return `${entityType === 'facultyGroup' ? 'Faculty' : entityType === 'hallGroup' ? 'Hall' : 'Student'} Group: ${entity.groupName}`
+          } else if (entityType === 'faculty') {
+            return `Faculty: ${entity.shortForm || entity.name}`
+          } else if (entityType === 'hall') {
+            return `Hall: ${entity.shortForm || entity.name}`
+          } else if (entityType === 'student') {
+            return `Student: ${entity.digitalId}`
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching entity name for ${entityType} ${entityId}:`, error)
+    }
+
+    return `${entityType} ${entityId}`
+  }
 
   // Update course scheduled count
   const updateCourseScheduledCount = async (courseId: number, increment: number) => {
@@ -251,8 +355,10 @@ export default function TimetableEditor({
   const handleAddSlot = async () => {
     if (!timetable || !currentSession) return
 
-    // For course slots, automatically populate resource IDs from the course
+    // Populate resource IDs based on context
     let slotToAdd = { ...editingSlot }
+
+    // For course slots, automatically populate resource IDs from the course
     if (editingSlot.type === 'course' && editingSlot.courseId) {
       const course = courses.find(c => c.id === editingSlot.courseId)
       if (course) {
@@ -267,6 +373,53 @@ export default function TimetableEditor({
         }
       }
     }
+
+    // For ALL slot types (including blockers), if we're editing a group timetable,
+    // populate the group ID so the slot propagates to all group members
+    if (entityType === 'studentGroup') {
+      slotToAdd = {
+        ...slotToAdd,
+        studentGroupIds: [...(slotToAdd.studentGroupIds || []), entityId]
+      }
+    } else if (entityType === 'facultyGroup') {
+      slotToAdd = {
+        ...slotToAdd,
+        facultyGroupIds: [...(slotToAdd.facultyGroupIds || []), entityId]
+      }
+    } else if (entityType === 'hallGroup') {
+      slotToAdd = {
+        ...slotToAdd,
+        hallGroupIds: [...(slotToAdd.hallGroupIds || []), entityId]
+      }
+    } else if (entityType === 'student') {
+      slotToAdd = {
+        ...slotToAdd,
+        studentIds: [...(slotToAdd.studentIds || []), entityId]
+      }
+    } else if (entityType === 'faculty') {
+      slotToAdd = {
+        ...slotToAdd,
+        facultyIds: [...(slotToAdd.facultyIds || []), entityId]
+      }
+    } else if (entityType === 'hall') {
+      slotToAdd = {
+        ...slotToAdd,
+        hallIds: [...(slotToAdd.hallIds || []), entityId]
+      }
+    }
+
+    // Check for conflicts before adding the slot
+    setCheckingConflicts(true)
+    const conflictList = await checkConflicts(slotToAdd, selectedDay)
+    setCheckingConflicts(false)
+
+    if (conflictList.length > 0) {
+      setConflicts(conflictList)
+      return // Don't add the slot if there are conflicts
+    }
+
+    // Clear any previous conflicts
+    setConflicts([])
 
     const newTimetable = { ...timetable }
     newTimetable.schedule = { ...timetable.schedule }
@@ -312,8 +465,10 @@ export default function TimetableEditor({
   const handleUpdateSlot = async () => {
     if (!timetable || !selectedSlot || !currentSession) return
 
-    // For course slots, automatically populate resource IDs from the course
+    // Populate resource IDs based on context
     let slotToUpdate = { ...editingSlot }
+
+    // For course slots, automatically populate resource IDs from the course
     if (editingSlot.type === 'course' && editingSlot.courseId) {
       const course = courses.find(c => c.id === editingSlot.courseId)
       if (course) {
@@ -328,6 +483,53 @@ export default function TimetableEditor({
         }
       }
     }
+
+    // For ALL slot types (including blockers), if we're editing a group timetable,
+    // populate the group ID so the slot propagates to all group members
+    if (entityType === 'studentGroup') {
+      slotToUpdate = {
+        ...slotToUpdate,
+        studentGroupIds: [...(slotToUpdate.studentGroupIds || []), entityId]
+      }
+    } else if (entityType === 'facultyGroup') {
+      slotToUpdate = {
+        ...slotToUpdate,
+        facultyGroupIds: [...(slotToUpdate.facultyGroupIds || []), entityId]
+      }
+    } else if (entityType === 'hallGroup') {
+      slotToUpdate = {
+        ...slotToUpdate,
+        hallGroupIds: [...(slotToUpdate.hallGroupIds || []), entityId]
+      }
+    } else if (entityType === 'student') {
+      slotToUpdate = {
+        ...slotToUpdate,
+        studentIds: [...(slotToUpdate.studentIds || []), entityId]
+      }
+    } else if (entityType === 'faculty') {
+      slotToUpdate = {
+        ...slotToUpdate,
+        facultyIds: [...(slotToUpdate.facultyIds || []), entityId]
+      }
+    } else if (entityType === 'hall') {
+      slotToUpdate = {
+        ...slotToUpdate,
+        hallIds: [...(slotToUpdate.hallIds || []), entityId]
+      }
+    }
+
+    // Check for conflicts before updating the slot (exclude the current slot being edited)
+    setCheckingConflicts(true)
+    const conflictList = await checkConflicts(slotToUpdate, selectedSlot.day, selectedSlot.slotIndex)
+    setCheckingConflicts(false)
+
+    if (conflictList.length > 0) {
+      setConflicts(conflictList)
+      return // Don't update the slot if there are conflicts
+    }
+
+    // Clear any previous conflicts
+    setConflicts([])
 
     const newTimetable = { ...timetable }
     newTimetable.schedule = { ...timetable.schedule }
@@ -377,16 +579,17 @@ export default function TimetableEditor({
       ...(slot.studentGroupIds || []).map(id => ({ type: 'studentGroup', id }))
     ]
 
-    for (const entity of allEntityIds) {
+    // Helper function to update a single entity's timetable
+    const updateEntityTimetable = async (entityType: string, entityId: number) => {
       try {
         // Get current timetable
-        const response = await fetch(`/api/timetables?entityType=${entity.type}&entityId=${entity.id}&sessionId=${currentSession.id}`)
+        const response = await fetch(`/api/timetables?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
         if (response.ok) {
           const data = await response.json()
           if (data.success) {
             const entityTimetable = data.data.timetable || {
-              entityId: entity.id,
-              entityType: entity.type,
+              entityId: entityId,
+              entityType: entityType,
               schedule: {},
               isComplete: false
             }
@@ -431,8 +634,8 @@ export default function TimetableEditor({
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                entityType: entity.type,
-                entityId: entity.id,
+                entityType: entityType,
+                entityId: entityId,
                 sessionId: currentSession.id,
                 timetable: entityTimetable
               })
@@ -440,7 +643,70 @@ export default function TimetableEditor({
           }
         }
       } catch (error) {
-        console.error(`Error updating ${entity.type} ${entity.id} timetable:`, error)
+        console.error(`Error updating ${entityType} ${entityId} timetable:`, error)
+      }
+    }
+
+    // Update direct entities (individuals and groups)
+    for (const entity of allEntityIds) {
+      await updateEntityTimetable(entity.type, entity.id)
+    }
+
+    // Additionally, update individual members of groups
+    const groupEntities = allEntityIds.filter(entity =>
+      entity.type === 'facultyGroup' || entity.type === 'hallGroup' || entity.type === 'studentGroup'
+    )
+
+    for (const groupEntity of groupEntities) {
+      try {
+        let membersEndpoint = ''
+        let memberType = ''
+
+        switch (groupEntity.type) {
+          case 'facultyGroup':
+            membersEndpoint = `/api/faculty-groups/${groupEntity.id}`
+            memberType = 'faculty'
+            break
+          case 'hallGroup':
+            membersEndpoint = `/api/hall-groups/${groupEntity.id}`
+            memberType = 'hall'
+            break
+          case 'studentGroup':
+            membersEndpoint = `/api/student-groups/${groupEntity.id}`
+            memberType = 'student'
+            break
+        }
+
+        if (membersEndpoint) {
+          const groupResponse = await fetch(membersEndpoint)
+          if (groupResponse.ok) {
+            const groupData = await groupResponse.json()
+            if (groupData.success && groupData.data) {
+              const group = groupData.data
+              let members: any[] = []
+
+              // Extract members based on group type
+              switch (groupEntity.type) {
+                case 'facultyGroup':
+                  members = group.facultyMemberships?.map((m: any) => m.faculty) || []
+                  break
+                case 'hallGroup':
+                  members = group.hallMemberships?.map((m: any) => m.hall) || []
+                  break
+                case 'studentGroup':
+                  members = group.studentMemberships?.map((m: any) => m.student) || []
+                  break
+              }
+
+              // Update each member's timetable
+              for (const member of members) {
+                await updateEntityTimetable(memberType, member.id)
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error updating members of ${groupEntity.type} ${groupEntity.id}:`, error)
       }
     }
   }
@@ -449,7 +715,7 @@ export default function TimetableEditor({
     if (!timetable || !currentSession) return
 
     const daySlots = [...(timetable.schedule[day] || [])]
-    
+
     if (slotIndex < 0 || slotIndex >= daySlots.length) return
 
     const slotToDelete = daySlots[slotIndex] as TimetableSlot
@@ -531,10 +797,76 @@ export default function TimetableEditor({
     return markers
   }
 
-  // Clear conflicts when editing slot changes
+  // Clear conflicts when editing slot changes and auto-check for course slots
   useEffect(() => {
     setConflicts([])
-  }, [editingSlot, selectedDay])
+
+    // Auto-check conflicts when a course is selected or when editing any slot on a group
+    if ((editingSlot.type === 'course' && editingSlot.courseId && currentSession) ||
+      (currentSession && (entityType.includes('Group') || entityType === 'student' || entityType === 'faculty' || entityType === 'hall'))) {
+      const autoCheckConflicts = async () => {
+        let slotToCheck = { ...editingSlot }
+
+        // For course slots, populate resource IDs from the course
+        if (editingSlot.type === 'course' && editingSlot.courseId) {
+          const course = courses.find(c => c.id === editingSlot.courseId)
+          if (course) {
+            slotToCheck = {
+              ...editingSlot,
+              facultyIds: course.compulsoryFaculties?.map(f => f.id) || [],
+              hallIds: course.compulsoryHalls?.map(h => h.id) || [],
+              facultyGroupIds: course.compulsoryFacultyGroups?.map(g => g.facultyGroup.id) || [],
+              hallGroupIds: course.compulsoryHallGroups?.map(g => g.hallGroup.id) || [],
+              studentIds: course.studentEnrollments?.map(e => e.student.id) || [],
+              studentGroupIds: course.studentGroupEnrollments?.map(e => e.studentGroup.id) || []
+            }
+          }
+        }
+
+        // For ALL slot types, if we're editing a group timetable, populate the group ID
+        if (entityType === 'studentGroup') {
+          slotToCheck = {
+            ...slotToCheck,
+            studentGroupIds: [...(slotToCheck.studentGroupIds || []), entityId]
+          }
+        } else if (entityType === 'facultyGroup') {
+          slotToCheck = {
+            ...slotToCheck,
+            facultyGroupIds: [...(slotToCheck.facultyGroupIds || []), entityId]
+          }
+        } else if (entityType === 'hallGroup') {
+          slotToCheck = {
+            ...slotToCheck,
+            hallGroupIds: [...(slotToCheck.hallGroupIds || []), entityId]
+          }
+        } else if (entityType === 'student') {
+          slotToCheck = {
+            ...slotToCheck,
+            studentIds: [...(slotToCheck.studentIds || []), entityId]
+          }
+        } else if (entityType === 'faculty') {
+          slotToCheck = {
+            ...slotToCheck,
+            facultyIds: [...(slotToCheck.facultyIds || []), entityId]
+          }
+        } else if (entityType === 'hall') {
+          slotToCheck = {
+            ...slotToCheck,
+            hallIds: [...(slotToCheck.hallIds || []), entityId]
+          }
+        }
+
+        setCheckingConflicts(true)
+        const conflictList = await checkConflicts(slotToCheck, selectedDay, selectedSlot?.slotIndex)
+        setConflicts(conflictList)
+        setCheckingConflicts(false)
+      }
+
+      // Delay the check slightly to avoid too many API calls
+      const timeoutId = setTimeout(autoCheckConflicts, 500)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [editingSlot, selectedDay, courses, currentSession, checkConflicts, selectedSlot?.slotIndex, entityType, entityId])
 
   if (loading) {
     return (
@@ -881,6 +1213,76 @@ export default function TimetableEditor({
               Checking for conflicts...
             </div>
           )}
+
+          {/* Manual Conflict Check Button */}
+          <div className="pt-4">
+            <button
+              onClick={async () => {
+                if (!editingSlot) return
+
+                // Populate resource IDs based on context
+                let slotToCheck = { ...editingSlot }
+
+                // For course slots, populate resource IDs from the course
+                if (editingSlot.type === 'course' && editingSlot.courseId) {
+                  const course = courses.find(c => c.id === editingSlot.courseId)
+                  if (course) {
+                    slotToCheck = {
+                      ...editingSlot,
+                      facultyIds: course.compulsoryFaculties?.map(f => f.id) || [],
+                      hallIds: course.compulsoryHalls?.map(h => h.id) || [],
+                      facultyGroupIds: course.compulsoryFacultyGroups?.map(g => g.facultyGroup.id) || [],
+                      hallGroupIds: course.compulsoryHallGroups?.map(g => g.hallGroup.id) || [],
+                      studentIds: course.studentEnrollments?.map(e => e.student.id) || [],
+                      studentGroupIds: course.studentGroupEnrollments?.map(e => e.studentGroup.id) || []
+                    }
+                  }
+                }
+
+                // For ALL slot types, if we're editing a group timetable, populate the group ID
+                if (entityType === 'studentGroup') {
+                  slotToCheck = {
+                    ...slotToCheck,
+                    studentGroupIds: [...(slotToCheck.studentGroupIds || []), entityId]
+                  }
+                } else if (entityType === 'facultyGroup') {
+                  slotToCheck = {
+                    ...slotToCheck,
+                    facultyGroupIds: [...(slotToCheck.facultyGroupIds || []), entityId]
+                  }
+                } else if (entityType === 'hallGroup') {
+                  slotToCheck = {
+                    ...slotToCheck,
+                    hallGroupIds: [...(slotToCheck.hallGroupIds || []), entityId]
+                  }
+                } else if (entityType === 'student') {
+                  slotToCheck = {
+                    ...slotToCheck,
+                    studentIds: [...(slotToCheck.studentIds || []), entityId]
+                  }
+                } else if (entityType === 'faculty') {
+                  slotToCheck = {
+                    ...slotToCheck,
+                    facultyIds: [...(slotToCheck.facultyIds || []), entityId]
+                  }
+                } else if (entityType === 'hall') {
+                  slotToCheck = {
+                    ...slotToCheck,
+                    hallIds: [...(slotToCheck.hallIds || []), entityId]
+                  }
+                }
+
+                setCheckingConflicts(true)
+                const conflictList = await checkConflicts(slotToCheck, selectedDay, selectedSlot?.slotIndex)
+                setConflicts(conflictList)
+                setCheckingConflicts(false)
+              }}
+              disabled={checkingConflicts}
+              className="w-full px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100 disabled:opacity-50"
+            >
+              {checkingConflicts ? 'Checking Conflicts...' : '🔍 Check for Conflicts'}
+            </button>
+          </div>
 
           {/* Action Buttons */}
           <div className="flex space-x-2 pt-4">
