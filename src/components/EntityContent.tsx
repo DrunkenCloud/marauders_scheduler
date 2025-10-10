@@ -9,6 +9,7 @@ import CourseManagement from './CourseManagement'
 import { StudentGroupManagement } from './StudentGroupManagement'
 import { FacultyGroupManagement } from './FacultyGroupManagement'
 import { HallGroupManagement } from './HallGroupManagement'
+import CourseScheduling from './CourseScheduling'
 
 interface EntityContentProps {
   entityType: EntityType | null
@@ -91,6 +92,17 @@ const entityInfo = {
       'Create group timetables',
       'Organize halls by categories'
     ]
+  },
+  [EntityType.SCHEDULE_COURSES]: {
+    title: 'Schedule Courses',
+    description: 'Schedule courses for all involved parties',
+    icon: '📅',
+    features: [
+      'Select courses to schedule',
+      'Send scheduling requests',
+      'Manage course scheduling',
+      'Coordinate all parties'
+    ]
   }
 }
 
@@ -163,6 +175,11 @@ export default function EntityContent({ entityType }: EntityContentProps) {
   // Return specific management component for hall groups
   if (entityType === EntityType.HALL_GROUP) {
     return <HallGroupManagement />
+  }
+
+  // Return specific component for course scheduling
+  if (entityType === EntityType.SCHEDULE_COURSES) {
+    return <CourseScheduling />
   }
 
   return (

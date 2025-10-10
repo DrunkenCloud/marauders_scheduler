@@ -39,7 +39,18 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         orderBy: { code: 'asc' },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          sessionId: true,
+          classDuration: true,
+          sessionsPerLecture: true,
+          totalSessions: true,
+          scheduledCount: true,
+          timetable: true,
+          createdAt: true,
+          updatedAt: true,
           session: true,
           compulsoryFaculties: {
             select: {
@@ -232,7 +243,18 @@ export async function POST(request: NextRequest) {
           }))
         }
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        sessionId: true,
+        classDuration: true,
+        sessionsPerLecture: true,
+        totalSessions: true,
+        scheduledCount: true,
+        timetable: true,
+        createdAt: true,
+        updatedAt: true,
         session: true,
         compulsoryFaculties: {
           select: {

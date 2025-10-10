@@ -53,6 +53,12 @@ export default function TimetableEditor({
   const [availableCourses, setAvailableCourses] = useState<Course[]>([])
   const [loadingCourses, setLoadingCourses] = useState(false)
 
+  // Helper function to check if a course is fully scheduled
+  const isCourseFullyScheduled = (courseId: number): boolean => {
+    const course = courses.find(c => c.id === courseId)
+    return Boolean(course && (course.scheduledCount || 0) >= (course.totalSessions || 0))
+  }
+
   // Initialize timetable
   useEffect(() => {
     if (initialTimetable) {
@@ -76,24 +82,33 @@ export default function TimetableEditor({
   }, [initialTimetable, entityId, entityType, currentSession, entityTiming])
 
   // Load courses for the slot editor
-  useEffect(() => {
+  const loadCourses = useCallback(async () => {
     if (!currentSession) return
 
-    const loadCourses = async () => {
-      setLoading(true)
-      try {
-        const coursesRes = await fetch(`/api/courses?sessionId=${currentSession.id}&limit=1000`)
-        const coursesData = await coursesRes.json()
-        if (coursesData.success) setCourses(coursesData.data.courses || [])
-      } catch (error) {
-        console.error('Error loading courses:', error)
-      } finally {
-        setLoading(false)
+    setLoading(true)
+    try {
+      const coursesRes = await fetch(`/api/courses?sessionId=${currentSession.id}&limit=1000`)
+      const coursesData = await coursesRes.json()
+      if (coursesData.success) {
+        const courses = coursesData.data.courses || []
+        console.log('Loaded courses with scheduled counts:', courses.map((c: any) => ({
+          id: c.id,
+          code: c.code,
+          scheduledCount: c.scheduledCount,
+          totalSessions: c.totalSessions
+        })))
+        setCourses(courses)
       }
+    } catch (error) {
+      console.error('Error loading courses:', error)
+    } finally {
+      setLoading(false)
     }
-
-    loadCourses()
   }, [currentSession])
+
+  useEffect(() => {
+    loadCourses()
+  }, [loadCourses])
 
   // Load available courses based on entity
   useEffect(() => {
@@ -250,15 +265,37 @@ export default function TimetableEditor({
   }
 
   // Update course scheduled count
-  const updateCourseScheduledCount = async (courseId: number, increment: number) => {
+  const updateCourseScheduledCount = async (courseId: number, increment: number): Promise<boolean> => {
     try {
-      await fetch(`/api/courses/${courseId}/scheduled-count`, {
+      const response = await fetch(`/api/courses/${courseId}/scheduled-count`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ increment })
       })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        console.error('Failed to update course scheduled count:', data.error?.message || 'Unknown error')
+        return false
+      }
+
+      console.log(`Successfully updated course ${courseId} scheduled count by ${increment}. New count: ${data.data.scheduledCount}`)
+      console.log('API response data:', data.data)
+
+      // Update the local courses state with the new scheduled count
+      setCourses(prevCourses =>
+        prevCourses.map(course =>
+          course.id === courseId
+            ? { ...course, scheduledCount: data.data.scheduledCount }
+            : course
+        )
+      )
+
+      return true
     } catch (error) {
       console.error('Error updating course scheduled count:', error)
+      return false
     }
   }
 
@@ -355,6 +392,15 @@ export default function TimetableEditor({
   const handleAddSlot = async () => {
     if (!timetable || !currentSession) return
 
+    // Check if course is fully scheduled
+    if (editingSlot.type === 'course' && editingSlot.courseId) {
+      if (isCourseFullyScheduled(editingSlot.courseId)) {
+        const course = courses.find(c => c.id === editingSlot.courseId)
+        alert(`Cannot schedule ${course?.code} - all ${course?.totalSessions} sessions are already scheduled.`)
+        return
+      }
+    }
+
     // Populate resource IDs based on context
     let slotToAdd = { ...editingSlot }
 
@@ -443,7 +489,13 @@ export default function TimetableEditor({
 
     // Update course scheduled count if it's a course slot
     if (slotToAdd.type === 'course' && slotToAdd.courseId) {
-      await updateCourseScheduledCount(slotToAdd.courseId, 1)
+      console.log(`Attempting to increment scheduled count for course ${slotToAdd.courseId}`)
+      const success = await updateCourseScheduledCount(slotToAdd.courseId, 1)
+      if (!success) {
+        console.warn('Failed to update course scheduled count, but slot was added to timetable')
+      } else {
+        console.log('Successfully incremented scheduled count')
+      }
     }
 
     // Update all related entity timetables
@@ -464,6 +516,18 @@ export default function TimetableEditor({
 
   const handleUpdateSlot = async () => {
     if (!timetable || !selectedSlot || !currentSession) return
+
+    // Check if course is fully scheduled (only if changing to a different course)
+    if (editingSlot.type === 'course' && editingSlot.courseId) {
+      const oldSlot = timetable.schedule[selectedSlot.day]?.[selectedSlot.slotIndex] as TimetableSlot
+      const isChangingCourse = oldSlot?.courseId !== editingSlot.courseId
+
+      if (isChangingCourse && isCourseFullyScheduled(editingSlot.courseId)) {
+        const course = courses.find(c => c.id === editingSlot.courseId)
+        alert(`Cannot schedule ${course?.code} - all ${course?.totalSessions} sessions are already scheduled.`)
+        return
+      }
+    }
 
     // Populate resource IDs based on context
     let slotToUpdate = { ...editingSlot }
@@ -551,10 +615,16 @@ export default function TimetableEditor({
 
       // Update course scheduled counts
       if (oldSlot.type === 'course' && oldSlot.courseId) {
-        await updateCourseScheduledCount(oldSlot.courseId, -1)
+        const decrementSuccess = await updateCourseScheduledCount(oldSlot.courseId, -1)
+        if (!decrementSuccess) {
+          console.warn('Failed to decrement scheduled count for old course')
+        }
       }
       if (slotToUpdate.type === 'course' && slotToUpdate.courseId) {
-        await updateCourseScheduledCount(slotToUpdate.courseId, 1)
+        const incrementSuccess = await updateCourseScheduledCount(slotToUpdate.courseId, 1)
+        if (!incrementSuccess) {
+          console.warn('Failed to increment scheduled count for new course')
+        }
       }
 
       // Update all related entity timetables
@@ -722,7 +792,10 @@ export default function TimetableEditor({
 
     // Update course scheduled count if it's a course slot
     if (slotToDelete.type === 'course' && slotToDelete.courseId) {
-      await updateCourseScheduledCount(slotToDelete.courseId, -1)
+      const success = await updateCourseScheduledCount(slotToDelete.courseId, -1)
+      if (!success) {
+        console.warn('Failed to decrement scheduled count for deleted course')
+      }
     }
 
     // Remove from all related entity timetables
@@ -1112,33 +1185,56 @@ export default function TimetableEditor({
             <>
               {/* Course Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Course to Schedule
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Course to Schedule
+                  </label>
+                  <button
+                    onClick={loadCourses}
+                    disabled={loading}
+                    className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-50"
+                    title="Refresh course list"
+                  >
+                    🔄 Refresh
+                  </button>
+                </div>
                 {loadingCourses ? (
                   <div className="text-sm text-gray-500">Loading courses...</div>
                 ) : (
-                  <select
-                    value={editingSlot.courseId || ''}
-                    onChange={(e) => {
-                      const courseId = parseInt(e.target.value)
-                      const course = courses.find(c => c.id === courseId)
-                      setEditingSlot({
-                        ...editingSlot,
-                        courseId: courseId || undefined,
-                        courseCode: course?.code || '',
-                        duration: course?.classDuration || 50
-                      })
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select course to schedule...</option>
-                    {courses.map(course => (
-                      <option key={course.id} value={course.id}>
-                        {course.code} - {course.name} ({course.scheduledCount}/{course.totalSessions} scheduled)
+                  <>
+                    <select
+                      value={editingSlot.courseId || ''}
+                      onChange={(e) => {
+                        const courseId = parseInt(e.target.value)
+                        const course = courses.find(c => c.id === courseId)
+                        setEditingSlot({
+                          ...editingSlot,
+                          courseId: courseId || undefined,
+                          courseCode: course?.code || '',
+                          duration: course?.classDuration || 50
+                        })
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">
+                        {courses.filter(course => !isCourseFullyScheduled(course.id)).length === 0
+                          ? 'No courses available for scheduling'
+                          : 'Select course to schedule...'}
                       </option>
-                    ))}
-                  </select>
+                      {courses
+                        .filter(course => !isCourseFullyScheduled(course.id))
+                        .map(course => (
+                          <option key={course.id} value={course.id}>
+                            {course.code} - {course.name} ({course.scheduledCount}/{course.totalSessions} scheduled)
+                          </option>
+                        ))}
+                    </select>
+                    {courses.filter(course => isCourseFullyScheduled(course.id)).length > 0 && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        {courses.filter(course => isCourseFullyScheduled(course.id)).length} course(s) fully scheduled and hidden
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -1151,8 +1247,15 @@ export default function TimetableEditor({
                       const course = courses.find(c => c.id === editingSlot.courseId)
                       if (!course) return <p>Course not found</p>
 
+                      const isFullyScheduled = isCourseFullyScheduled(course.id)
+
                       return (
                         <>
+                          {isFullyScheduled && (
+                            <div className="bg-yellow-100 border border-yellow-300 rounded p-2 mb-2">
+                              <p className="text-yellow-800 font-medium">⚠️ This course is fully scheduled ({course.scheduledCount}/{course.totalSessions})</p>
+                            </div>
+                          )}
                           {course.compulsoryFaculties && course.compulsoryFaculties.length > 0 && (
                             <p>• Faculty: {course.compulsoryFaculties.map(f => f.shortForm || f.name).join(', ')}</p>
                           )}
@@ -1289,7 +1392,11 @@ export default function TimetableEditor({
             {selectedSlot ? (
               <button
                 onClick={handleUpdateSlot}
-                disabled={checkingConflicts}
+                disabled={checkingConflicts || (editingSlot.type === 'course' && editingSlot.courseId ? (() => {
+                  const oldSlot = timetable?.schedule[selectedSlot.day]?.[selectedSlot.slotIndex] as TimetableSlot
+                  const isChangingCourse = oldSlot?.courseId !== editingSlot.courseId
+                  return isChangingCourse && isCourseFullyScheduled(editingSlot.courseId)
+                })() : false)}
                 className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50"
               >
                 {checkingConflicts ? 'Checking...' : 'Update Slot'}
@@ -1297,7 +1404,7 @@ export default function TimetableEditor({
             ) : (
               <button
                 onClick={handleAddSlot}
-                disabled={checkingConflicts}
+                disabled={checkingConflicts || (editingSlot.type === 'course' && editingSlot.courseId ? isCourseFullyScheduled(editingSlot.courseId) : false)}
                 className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:opacity-50"
               >
                 {checkingConflicts ? 'Checking...' : 'Add Slot'}

@@ -57,6 +57,12 @@ const entityNavItems: EntityNavItem[] = [
     label: 'Hall Groups',
     icon: '🏢',
     description: 'Manage hall group assignments'
+  },
+  {
+    type: EntityType.SCHEDULE_COURSES,
+    label: 'Schedule Courses',
+    icon: '📅',
+    description: 'Schedule courses for all involved parties'
   }
 ]
 

@@ -20,7 +20,8 @@ export enum EntityType {
   COURSE = 'course',
   STUDENT_GROUP = 'studentGroup',
   FACULTY_GROUP = 'facultyGroup',
-  HALL_GROUP = 'hallGroup'
+  HALL_GROUP = 'HALL_GROUP',
+  SCHEDULE_COURSES = 'scheduleCourses'
 }
 
 // Common UI Types
