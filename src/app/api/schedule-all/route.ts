@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ApiResponse } from '@/types'
+import { compileSchedulingData } from './algo'
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,10 +52,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 })
     }
 
-    // TODO: Implement actual scheduling logic here
-    // For now, just return a success response with the received data
-    
-    console.log(`Scheduling request processed successfully for ${courseIds.length} courses in session ${sessionId}`)
+    const compiled = await compileSchedulingData(sessionId, courseIds)
+
+    console.log(`Scheduling compilation complete for ${courseIds.length} courses in session ${sessionId}`)
 
     const response: ApiResponse = {
       success: true,
