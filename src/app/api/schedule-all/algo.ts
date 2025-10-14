@@ -1,59 +1,17 @@
 import { prisma } from '@/lib/prisma'
+import { 
+  CompiledCourseData, 
+  EntityWorkload, 
+  EntityData, 
+  CompiledSchedulingData, 
+  SlotFragment 
+} from '@/types'
 
-export interface CompiledCourseData {
-  courseId: number
-  courseCode: string
-  classDuration: number
-  sessionsPerLecture: number
-  totalSessions: number
-  scheduledCount: number
-  studentIds: number[]
-  facultyIds: number[]
-  hallIds: number[]
-  studentGroupIds: number[]
-  facultyGroupIds: number[]
-  hallGroupIds: number[]
-}
-
-export interface EntityWorkload {
-  totalFreeHours: number
-  dailyFreeHours: { [day: string]: number }
-  dailyThresholds: { [day: string]: number }
-  currentWorkload: { [day: string]: number }
-  totalScheduledDuration: number
-}
-
-export interface CompiledSchedulingData {
-  sessionId: number
-  courses: CompiledCourseData[]
-  studentWorkloads: { [studentId: number]: EntityWorkload }
-  facultyWorkloads: { [facultyId: number]: EntityWorkload }
-  hallWorkloads: { [hallId: number]: EntityWorkload }
-  studentGroupWorkloads: { [groupId: number]: EntityWorkload }
-  facultyGroupWorkloads: { [groupId: number]: EntityWorkload }
-}
-
-interface SlotFragment {
-  duration: number
-  type: 'course' | 'blocker'
-  startHour: number
-  startMinute: number
-  courseId?: number
-  courseCode?: string
-  blockerReason?: string
-  hallIds?: number[]
-  facultyIds?: number[]
-  hallGroupIds?: number[]
-  facultyGroupIds?: number[]
-  studentIds?: number[]
-  studentGroupIds?: number[]
-}
-
-// Helper function to calculate free hours from timetable
-function calculateFreeHours(timetable: any, startHour: number, startMinute: number, endHour: number, endMinute: number): { totalFreeHours: number, dailyFreeHours: { [day: string]: number } } {
+// Helper function to calculate free minutes from timetable
+function calculateFreeMinutes(timetable: any, startHour: number, startMinute: number, endHour: number, endMinute: number): { totalFreeMinutes: number, dailyFreeMinutes: { [day: string]: number } } {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-  const dailyFreeHours: { [day: string]: number } = {}
-  let totalFreeHours = 0
+  const dailyFreeMinutes: { [day: string]: number } = {}
+  let totalFreeMinutes = 0
 
   const startTimeMinutes = startHour * 60 + startMinute
   const endTimeMinutes = endHour * 60 + endMinute
@@ -74,45 +32,33 @@ function calculateFreeHours(timetable: any, startHour: number, startMinute: numb
     }
 
     const freeMinutes = totalDayMinutes - occupiedMinutes
-    const freeHours = freeMinutes / 60
-    dailyFreeHours[day] = Math.max(0, freeHours)
-    totalFreeHours += dailyFreeHours[day]
+    dailyFreeMinutes[day] = Math.max(0, freeMinutes)
+    totalFreeMinutes += dailyFreeMinutes[day]
   }
 
-  return { totalFreeHours, dailyFreeHours }
+  return { totalFreeMinutes, dailyFreeMinutes }
 }
 
-// Helper function to parse time string to minutes
-function parseTimeToMinutes(timeStr: string): number {
-  const [hours, minutes] = timeStr.split(':').map(Number)
-  return hours * 60 + minutes
-}
-
-// Helper function to calculate current workload from timetable
+// Helper function to calculate current workload from timetable (keep in minutes)
 function calculateCurrentWorkload(timetable: any): { [day: string]: number } {
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const currentWorkload: { [day: string]: number } = {}
 
   for (const day of days) {
-    const daySchedule = timetable[day] || []
+    const daySchedule: SlotFragment[] = timetable[day] || []
     let totalMinutes = 0
 
     for (const slot of daySchedule) {
-      if (slot.length >= 2) {
-        const [startTime, endTime] = slot
-        const startMinutes = parseTimeToMinutes(startTime)
-        const endMinutes = parseTimeToMinutes(endTime)
-        totalMinutes += (endMinutes - startMinutes)
-      }
+      totalMinutes += slot.duration
     }
 
-    currentWorkload[day] = totalMinutes / 60 // Convert to hours
+    currentWorkload[day] = totalMinutes // Keep in minutes
   }
 
   return currentWorkload
 }
 
-// Helper function to calculate total scheduled duration for an entity across all courses
+// Helper function to calculate total scheduled duration for an entity across all courses (keep in minutes)
 function calculateTotalScheduledDuration(entityId: number, courses: CompiledCourseData[], entityType: 'student' | 'faculty' | 'hall' | 'studentGroup' | 'facultyGroup'): number {
   let totalDuration = 0
 
@@ -139,8 +85,8 @@ function calculateTotalScheduledDuration(entityId: number, courses: CompiledCour
 
     if (isInvolved) {
       const remainingSessions = course.totalSessions - course.scheduledCount
-      const sessionDurationHours = (course.classDuration * course.sessionsPerLecture) / 60
-      totalDuration += remainingSessions * sessionDurationHours
+      const sessionDurationMinutes = course.classDuration * course.sessionsPerLecture
+      totalDuration += remainingSessions * sessionDurationMinutes
     }
   }
 
@@ -299,10 +245,12 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
     })
   ])
 
-  // Calculate workloads for each entity type
-  const studentWorkloads: { [studentId: number]: EntityWorkload } = {}
+  // Create unified entity dictionary with all data
+  const allEntities: { [entityId: number]: EntityData } = {}
+
+  // Add students
   for (const student of students) {
-    const { totalFreeHours, dailyFreeHours } = calculateFreeHours(
+    const { totalFreeMinutes, dailyFreeMinutes } = calculateFreeMinutes(
       student.timetable, student.startHour, student.startMinute, student.endHour, student.endMinute
     )
     const currentWorkload = calculateCurrentWorkload(student.timetable)
@@ -310,22 +258,30 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
 
     const dailyThresholds: { [day: string]: number } = {}
     for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
-      const dayPercentage = totalFreeHours > 0 ? dailyFreeHours[day] / totalFreeHours : 0.2
+      const dayPercentage = totalFreeMinutes > 0 ? dailyFreeMinutes[day] / totalFreeMinutes : 0.2
       dailyThresholds[day] = totalScheduledDuration * dayPercentage
     }
 
-    studentWorkloads[student.id] = {
-      totalFreeHours,
-      dailyFreeHours,
-      dailyThresholds,
-      currentWorkload,
-      totalScheduledDuration
+    allEntities[student.id] = {
+      id: student.id,
+      timetable: student.timetable,
+      startHour: student.startHour,
+      startMinute: student.startMinute,
+      endHour: student.endHour,
+      endMinute: student.endMinute,
+      workload: {
+        totalFreeMinutes,
+        dailyFreeMinutes,
+        dailyThresholds,
+        currentWorkload,
+        totalScheduledDuration
+      }
     }
   }
 
-  const facultyWorkloads: { [facultyId: number]: EntityWorkload } = {}
+  // Add faculties
   for (const faculty of faculties) {
-    const { totalFreeHours, dailyFreeHours } = calculateFreeHours(
+    const { totalFreeMinutes, dailyFreeMinutes } = calculateFreeMinutes(
       faculty.timetable, faculty.startHour, faculty.startMinute, faculty.endHour, faculty.endMinute
     )
     const currentWorkload = calculateCurrentWorkload(faculty.timetable)
@@ -333,22 +289,30 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
 
     const dailyThresholds: { [day: string]: number } = {}
     for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
-      const dayPercentage = totalFreeHours > 0 ? dailyFreeHours[day] / totalFreeHours : 0.2
+      const dayPercentage = totalFreeMinutes > 0 ? dailyFreeMinutes[day] / totalFreeMinutes : 0.2
       dailyThresholds[day] = totalScheduledDuration * dayPercentage
     }
 
-    facultyWorkloads[faculty.id] = {
-      totalFreeHours,
-      dailyFreeHours,
-      dailyThresholds,
-      currentWorkload,
-      totalScheduledDuration
+    allEntities[faculty.id] = {
+      id: faculty.id,
+      timetable: faculty.timetable,
+      startHour: faculty.startHour,
+      startMinute: faculty.startMinute,
+      endHour: faculty.endHour,
+      endMinute: faculty.endMinute,
+      workload: {
+        totalFreeMinutes,
+        dailyFreeMinutes,
+        dailyThresholds,
+        currentWorkload,
+        totalScheduledDuration
+      }
     }
   }
 
-  const hallWorkloads: { [hallId: number]: EntityWorkload } = {}
+  // Add halls
   for (const hall of halls) {
-    const { totalFreeHours, dailyFreeHours } = calculateFreeHours(
+    const { totalFreeMinutes, dailyFreeMinutes } = calculateFreeMinutes(
       hall.timetable, hall.startHour, hall.startMinute, hall.endHour, hall.endMinute
     )
     const currentWorkload = calculateCurrentWorkload(hall.timetable)
@@ -356,22 +320,30 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
 
     const dailyThresholds: { [day: string]: number } = {}
     for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
-      const dayPercentage = totalFreeHours > 0 ? dailyFreeHours[day] / totalFreeHours : 0.2
+      const dayPercentage = totalFreeMinutes > 0 ? dailyFreeMinutes[day] / totalFreeMinutes : 0.2
       dailyThresholds[day] = totalScheduledDuration * dayPercentage
     }
 
-    hallWorkloads[hall.id] = {
-      totalFreeHours,
-      dailyFreeHours,
-      dailyThresholds,
-      currentWorkload,
-      totalScheduledDuration
+    allEntities[hall.id] = {
+      id: hall.id,
+      timetable: hall.timetable,
+      startHour: hall.startHour,
+      startMinute: hall.startMinute,
+      endHour: hall.endHour,
+      endMinute: hall.endMinute,
+      workload: {
+        totalFreeMinutes,
+        dailyFreeMinutes,
+        dailyThresholds,
+        currentWorkload,
+        totalScheduledDuration
+      }
     }
   }
 
-  const studentGroupWorkloads: { [groupId: number]: EntityWorkload } = {}
+  // Add student groups
   for (const group of studentGroups) {
-    const { totalFreeHours, dailyFreeHours } = calculateFreeHours(
+    const { totalFreeMinutes, dailyFreeMinutes } = calculateFreeMinutes(
       group.timetable, group.startHour, group.startMinute, group.endHour, group.endMinute
     )
     const currentWorkload = calculateCurrentWorkload(group.timetable)
@@ -379,22 +351,30 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
 
     const dailyThresholds: { [day: string]: number } = {}
     for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
-      const dayPercentage = totalFreeHours > 0 ? dailyFreeHours[day] / totalFreeHours : 0.2
+      const dayPercentage = totalFreeMinutes > 0 ? dailyFreeMinutes[day] / totalFreeMinutes : 0.2
       dailyThresholds[day] = totalScheduledDuration * dayPercentage
     }
 
-    studentGroupWorkloads[group.id] = {
-      totalFreeHours,
-      dailyFreeHours,
-      dailyThresholds,
-      currentWorkload,
-      totalScheduledDuration
+    allEntities[group.id] = {
+      id: group.id,
+      timetable: group.timetable,
+      startHour: group.startHour,
+      startMinute: group.startMinute,
+      endHour: group.endHour,
+      endMinute: group.endMinute,
+      workload: {
+        totalFreeMinutes,
+        dailyFreeMinutes,
+        dailyThresholds,
+        currentWorkload,
+        totalScheduledDuration
+      }
     }
   }
 
-  const facultyGroupWorkloads: { [groupId: number]: EntityWorkload } = {}
+  // Add faculty groups
   for (const group of facultyGroups) {
-    const { totalFreeHours, dailyFreeHours } = calculateFreeHours(
+    const { totalFreeMinutes, dailyFreeMinutes } = calculateFreeMinutes(
       group.timetable, group.startHour, group.startMinute, group.endHour, group.endMinute
     )
     const currentWorkload = calculateCurrentWorkload(group.timetable)
@@ -402,27 +382,31 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
 
     const dailyThresholds: { [day: string]: number } = {}
     for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
-      const dayPercentage = totalFreeHours > 0 ? dailyFreeHours[day] / totalFreeHours : 0.2
+      const dayPercentage = totalFreeMinutes > 0 ? dailyFreeMinutes[day] / totalFreeMinutes : 0.2
       dailyThresholds[day] = totalScheduledDuration * dayPercentage
     }
 
-    facultyGroupWorkloads[group.id] = {
-      totalFreeHours,
-      dailyFreeHours,
-      dailyThresholds,
-      currentWorkload,
-      totalScheduledDuration
+    allEntities[group.id] = {
+      id: group.id,
+      timetable: group.timetable,
+      startHour: group.startHour,
+      startMinute: group.startMinute,
+      endHour: group.endHour,
+      endMinute: group.endMinute,
+      workload: {
+        totalFreeMinutes,
+        dailyFreeMinutes,
+        dailyThresholds,
+        currentWorkload,
+        totalScheduledDuration
+      }
     }
   }
 
   const res = {
     sessionId,
     courses: compiled,
-    studentWorkloads,
-    facultyWorkloads,
-    hallWorkloads,
-    studentGroupWorkloads,
-    facultyGroupWorkloads
+    allEntities
   }
 
   console.log(JSON.stringify(res, null, 2));
@@ -430,10 +414,247 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
   return res;
 }
 
-// Placeholder for the recursive scheduler to be implemented next
-export function scheduleCourses(_: CompiledSchedulingData) {
-  // TODO: Implement recursive scheduling based on compiled data
-  return { message: 'Scheduling algorithm not yet implemented' }
+// Helper function to check if an entity is free during a specific time slot
+function isEntityFree(
+  timetable: any,
+  day: string,
+  startHour: number,
+  startMinute: number,
+  duration: number,
+  workingStartHour: number,
+  workingStartMinute: number,
+  workingEndHour: number,
+  workingEndMinute: number
+): boolean {
+  const daySchedule: SlotFragment[] = timetable[day] || []
+
+  const slotStartMinutes = startHour * 60 + startMinute
+  const slotEndMinutes = slotStartMinutes + duration
+  const workingStartMinutes = workingStartHour * 60 + workingStartMinute
+  const workingEndMinutes = workingEndHour * 60 + workingEndMinute
+
+  // Check if slot is within working hours
+  if (slotStartMinutes < workingStartMinutes || slotEndMinutes > workingEndMinutes) {
+    return false
+  }
+
+  // Check for conflicts with existing slots
+  for (const existingSlot of daySchedule) {
+    const existingStartMinutes = existingSlot.startHour * 60 + existingSlot.startMinute
+    const existingEndMinutes = existingStartMinutes + existingSlot.duration
+
+    // Check for overlap
+    if (!(slotEndMinutes <= existingStartMinutes || slotStartMinutes >= existingEndMinutes)) {
+      return false // Overlap found
+    }
+  }
+
+  return true
+}
+
+// Helper function to check if workload allows scheduling on a specific day
+function canScheduleOnDay(
+  entityWorkload: EntityWorkload,
+  day: string
+): boolean {
+  const currentWorkload = entityWorkload.currentWorkload[day] || 0
+  const threshold = entityWorkload.dailyThresholds[day] || 0
+
+  return currentWorkload < threshold
+}
+
+// Helper function to find a time slot where all entities are available
+function findAvailableSlotForAllEntities(
+  course: CompiledCourseData,
+  day: string,
+  duration: number,
+  data: CompiledSchedulingData
+): { startHour: number, startMinute: number } | null {
+  // Get all entity IDs involved in this course
+  const allEntityIds = [
+    ...course.studentIds,
+    ...course.facultyIds,
+    ...course.hallIds,
+    ...course.studentGroupIds,
+    ...course.facultyGroupIds,
+    ...course.hallGroupIds
+  ]
+
+  // Find the most restrictive working hours (latest start, earliest end)
+  let latestStartMinutes = 0
+  let earliestEndMinutes = 24 * 60 // 24 hours in minutes
+
+  for (const entityId of allEntityIds) {
+    const entity = data.allEntities[entityId]
+    if (!entity) continue
+
+    const entityStartMinutes = entity.startHour * 60 + entity.startMinute
+    const entityEndMinutes = entity.endHour * 60 + entity.endMinute
+
+    latestStartMinutes = Math.max(latestStartMinutes, entityStartMinutes)
+    earliestEndMinutes = Math.min(earliestEndMinutes, entityEndMinutes)
+  }
+
+  // Try every 10-minute interval within the overlapping working hours
+  for (let minutes = latestStartMinutes; minutes + duration <= earliestEndMinutes; minutes += 10) {
+    const startHour = Math.floor(minutes / 60)
+    const startMinute = minutes % 60
+
+    // Check if all entities are available at this time
+    if (areAllEntitiesAvailable(course, day, startHour, startMinute, duration, data)) {
+      return { startHour, startMinute }
+    }
+  }
+
+  return null
+}
+
+// Helper function to check if all entities are available for a time slot
+function areAllEntitiesAvailable(
+  course: CompiledCourseData,
+  day: string,
+  startHour: number,
+  startMinute: number,
+  duration: number,
+  data: CompiledSchedulingData
+): boolean {
+  // Get all entity IDs involved in this course
+  const allEntityIds = [
+    ...course.studentIds,
+    ...course.facultyIds,
+    ...course.hallIds,
+    ...course.studentGroupIds,
+    ...course.facultyGroupIds,
+    ...course.hallGroupIds
+  ]
+
+  // Check each entity
+  for (const entityId of allEntityIds) {
+    const entity = data.allEntities[entityId]
+    if (!entity) continue
+
+    // Check if entity is free at this time
+    if (!isEntityFree(
+      entity.timetable,
+      day,
+      startHour,
+      startMinute,
+      duration,
+      entity.startHour,
+      entity.startMinute,
+      entity.endHour,
+      entity.endMinute
+    )) {
+      return false
+    }
+
+    // Check if workload allows scheduling on this day
+    if (!canScheduleOnDay(entity.workload, day)) {
+      return false
+    }
+  }
+
+  return true
+}
+
+// Main recursive scheduling function
+export function scheduleCourses(data: CompiledSchedulingData): { success: boolean, message: string, scheduledSlots?: SlotFragment[] } {
+  const scheduledSlots: SlotFragment[] = []
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+
+  // Base case: check if all courses are fully scheduled
+  const unscheduledCourses = data.courses.filter(course => course.scheduledCount < course.totalSessions)
+
+  if (unscheduledCourses.length === 0) {
+    return {
+      success: true,
+      message: 'All courses successfully scheduled',
+      scheduledSlots
+    }
+  }
+
+  // Try to schedule each unscheduled course
+  for (const course of unscheduledCourses) {
+    const sessionDuration = course.classDuration * course.sessionsPerLecture // Total duration in minutes
+
+    // Check if course has any entities assigned
+    const allEntityIds = [
+      ...course.studentIds,
+      ...course.facultyIds,
+      ...course.hallIds,
+      ...course.studentGroupIds,
+      ...course.facultyGroupIds,
+      ...course.hallGroupIds
+    ]
+
+    if (allEntityIds.length === 0) {
+      console.log(`Course ${course.courseCode} has no entities assigned`)
+      continue
+    }
+
+    let scheduled = false
+
+    // Try each day of the week
+    for (const day of days) {
+      if (scheduled) break
+
+      // Find available slot where all entities are free
+      const availableSlot = findAvailableSlotForAllEntities(
+        course,
+        day,
+        sessionDuration,
+        data
+      )
+
+      if (availableSlot) {
+        // Create the slot fragment
+        const newSlot: SlotFragment = {
+          type: 'course',
+          startHour: availableSlot.startHour,
+          startMinute: availableSlot.startMinute,
+          duration: sessionDuration,
+          courseId: course.courseId,
+          courseCode: course.courseCode,
+          studentIds: course.studentIds,
+          facultyIds: course.facultyIds,
+          hallIds: course.hallIds,
+          studentGroupIds: course.studentGroupIds,
+          facultyGroupIds: course.facultyGroupIds,
+          hallGroupIds: course.hallGroupIds
+        }
+
+        scheduledSlots.push(newSlot)
+
+        // Update scheduled count
+        course.scheduledCount += 1
+
+        // Update workloads for all entities (keep in minutes)
+        for (const entityId of allEntityIds) {
+          const entity = data.allEntities[entityId]
+          if (entity) {
+            entity.workload.currentWorkload[day] += sessionDuration
+          }
+        }
+
+        scheduled = true
+        console.log(`Scheduled ${course.courseCode} on ${day} at ${availableSlot.startHour}:${availableSlot.startMinute.toString().padStart(2, '0')}`)
+      }
+    }
+
+    if (!scheduled) {
+      return {
+        success: false,
+        message: `Could not schedule course ${course.courseCode} - no available slots found`,
+        scheduledSlots
+      }
+    }
+  }
+
+  return {
+    success: true,
+    message: `Successfully scheduled ${scheduledSlots.length} sessions`,
+    scheduledSlots
+  }
 }
 
 

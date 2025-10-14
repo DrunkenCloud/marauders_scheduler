@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ApiResponse } from '@/types'
-import { compileSchedulingData } from './algo'
+import { compileSchedulingData, scheduleCourses } from './algo'
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,13 +56,17 @@ export async function POST(request: NextRequest) {
 
     console.log(`Scheduling compilation complete for ${courseIds.length} courses in session ${sessionId}`)
 
+    // Run the scheduling algorithm
+    const schedulingResult = scheduleCourses(compiled)
+
     const response: ApiResponse = {
-      success: true,
+      success: schedulingResult.success,
       data: {
-        message: 'Scheduling request received successfully',
+        message: schedulingResult.message,
         sessionId,
         courseIds,
         coursesCount: courseIds.length,
+        scheduledSlots: schedulingResult.scheduledSlots || [],
         timestamp: new Date()
       }
     }

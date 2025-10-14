@@ -295,6 +295,76 @@ export interface TimetableSlot {
   studentGroupIds?: number[] // assigned student groups
 }
 
+// Scheduling Algorithm Types
+export interface CompiledCourseData {
+  courseId: number
+  courseCode: string
+  classDuration: number
+  sessionsPerLecture: number
+  totalSessions: number
+  scheduledCount: number
+  studentIds: number[]
+  facultyIds: number[]
+  hallIds: number[]
+  studentGroupIds: number[]
+  facultyGroupIds: number[]
+  hallGroupIds: number[]
+}
+
+export interface EntityWorkload {
+  totalFreeMinutes: number
+  dailyFreeMinutes: { [day: string]: number }
+  dailyThresholds: { [day: string]: number }
+  currentWorkload: { [day: string]: number }
+  totalScheduledDuration: number
+}
+
+export interface EntityData {
+  id: number
+  timetable: any
+  startHour: number
+  startMinute: number
+  endHour: number
+  endMinute: number
+  workload: EntityWorkload
+}
+
+export interface CompiledSchedulingData {
+  sessionId: number
+  courses: CompiledCourseData[]
+  allEntities: { [entityId: number]: EntityData }
+}
+
+export interface SlotFragment {
+  duration: number
+  type: 'course' | 'blocker'
+  startHour: number
+  startMinute: number
+  courseId?: number
+  courseCode?: string
+  blockerReason?: string
+  hallIds?: number[]
+  facultyIds?: number[]
+  hallGroupIds?: number[]
+  facultyGroupIds?: number[]
+  studentIds?: number[]
+  studentGroupIds?: number[]
+}
+
+// Additional Timetable Types
+export interface TimeSlot {
+  startHour: number    // 0-23
+  startMinute: number  // 0-59
+  duration: number     // minutes (e.g., 20, 30, 50, 60)
+}
+
+export interface AvailableSlot {
+  day: string
+  startSlotIndex: number
+  slots: TimetableSlot[]
+  totalDuration: number
+}
+
 export interface DaySchedule {
   [day: string]: TimetableSlot[]  // Array of slots only (no free slots)
 }

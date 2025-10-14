@@ -1,61 +1,14 @@
-import { EntityType, ValidationResult, EntityTiming } from '@/types'
-
-// Timetable slot types
-export interface TimetableSlot {
-  type: 'course' | 'blocker'  // slot type
-  startHour: number     // 0-23
-  startMinute: number   // 0-59
-  duration: number      // minutes
-  courseId?: number     // for course slots
-  courseCode?: string   // for course slots
-  blockerReason?: string // for blocker slots
-  hallIds?: number[]    // assigned halls
-  facultyIds?: number[] // assigned faculties
-  hallGroupIds?: number[] // assigned hall groups
-  facultyGroupIds?: number[] // assigned faculty groups
-  studentIds?: number[] // assigned students
-  studentGroupIds?: number[] // assigned student groups
-}
-
-export interface SlotFragment {
-  duration: number
-  type: 'course' | 'blocker'
-  startHour: number
-  startMinute: number
-  courseId?: number
-  courseCode?: string
-  blockerReason?: string
-  hallIds?: number[]
-  facultyIds?: number[]
-  hallGroupIds?: number[]
-  facultyGroupIds?: number[]
-  studentIds?: number[]
-  studentGroupIds?: number[]
-}
-
-export interface DaySchedule {
-  [day: string]: TimetableSlot[]  // Array of slots only (no free slots)
-}
-
-export interface EntityTimetable {
-  entityId: number
-  entityType: EntityType
-  schedule: DaySchedule
-  isComplete: boolean    // true for students, can be false for others
-}
-
-export interface TimeSlot {
-  startHour: number    // 0-23
-  startMinute: number  // 0-59
-  duration: number     // minutes (e.g., 20, 30, 50, 60)
-}
-
-export interface AvailableSlot {
-  day: string
-  startSlotIndex: number
-  slots: TimetableSlot[]
-  totalDuration: number
-}
+import {
+  EntityType,
+  ValidationResult,
+  EntityTiming,
+  TimetableSlot,
+  SlotFragment,
+  TimeSlot,
+  AvailableSlot,
+  DaySchedule,
+  EntityTimetable
+} from '@/types'
 
 
 
@@ -96,9 +49,7 @@ export function generateTimeSlots(timing: EntityTiming, slotDuration: number = D
  */
 export function initializeEmptyTimetable(
   entityId: number,
-  entityType: EntityType,
-  timing: EntityTiming,
-  slotDuration: number = DEFAULT_SLOT_DURATION
+  entityType: EntityType
 ): EntityTimetable {
   const schedule: DaySchedule = {}
 
@@ -159,13 +110,54 @@ export function convertFromLegacyFormat(
     const dayData = legacyTimetable[day] || []
     schedule[day] = dayData
       .map((slot: any) => {
+        // Handle object format (direct TimetableSlot objects)
+        if (slot && typeof slot === 'object' && !Array.isArray(slot) && 'type' in slot) {
+          const timetableSlot: TimetableSlot = {
+            type: slot.type || 'course',
+            startHour: slot.startHour || 8,
+            startMinute: slot.startMinute || 0,
+            duration: slot.duration || DEFAULT_SLOT_DURATION,
+            courseId: slot.courseId || undefined,
+            courseCode: slot.courseCode || undefined,
+            blockerReason: slot.blockerReason || undefined,
+            hallIds: Array.isArray(slot.hallIds) ? slot.hallIds : [],
+            facultyIds: Array.isArray(slot.facultyIds) ? slot.facultyIds : [],
+            hallGroupIds: Array.isArray(slot.hallGroupIds) ? slot.hallGroupIds : [],
+            facultyGroupIds: Array.isArray(slot.facultyGroupIds) ? slot.facultyGroupIds : [],
+            studentIds: Array.isArray(slot.studentIds) ? slot.studentIds : [],
+            studentGroupIds: Array.isArray(slot.studentGroupIds) ? slot.studentGroupIds : []
+          }
+          return timetableSlot
+        }
+
+        // Handle array format (legacy)
         if (Array.isArray(slot)) {
           // Skip old free slots [0]
           if (slot.length === 1 && slot[0] === 0) {
             return null
           }
 
-          // Handle new format
+          // Handle current array format (13 elements)
+          if (slot.length >= 13) {
+            const timetableSlot: TimetableSlot = {
+              type: slot[0] || 'course',
+              startHour: slot[1] || 8,
+              startMinute: slot[2] || 0,
+              duration: slot[3] || DEFAULT_SLOT_DURATION,
+              courseId: slot[4] || undefined,
+              courseCode: slot[5] || undefined,
+              blockerReason: slot[6] || undefined,
+              hallIds: Array.isArray(slot[7]) ? slot[7] : [],
+              facultyIds: Array.isArray(slot[8]) ? slot[8] : [],
+              hallGroupIds: Array.isArray(slot[9]) ? slot[9] : [],
+              facultyGroupIds: Array.isArray(slot[10]) ? slot[10] : [],
+              studentIds: Array.isArray(slot[11]) ? slot[11] : [],
+              studentGroupIds: Array.isArray(slot[12]) ? slot[12] : []
+            }
+            return timetableSlot
+          }
+
+          // Handle older array format (7+ elements)
           if (slot.length >= 7) {
             const timetableSlot: TimetableSlot = {
               type: slot[0] || 'course',
@@ -185,7 +177,7 @@ export function convertFromLegacyFormat(
             return timetableSlot
           }
 
-          // Handle legacy occupied slot format
+          // Handle very old format (4+ elements)
           if (slot.length >= 4) {
             const timetableSlot: TimetableSlot = {
               type: 'course',
@@ -195,10 +187,10 @@ export function convertFromLegacyFormat(
               courseCode: typeof slot[1] === 'string' ? (slot[3] || undefined) : (slot[4] || undefined),
               hallIds: Array.isArray(slot[5]) ? slot[5] : (slot[5] ? [slot[5]] : []),
               facultyIds: Array.isArray(slot[6]) ? slot[6] : (slot[6] ? [slot[6]] : []),
-              hallGroupIds: Array.isArray(slot[7]) ? slot[7] : [],
-              facultyGroupIds: Array.isArray(slot[8]) ? slot[8] : [],
-              studentIds: Array.isArray(slot[9]) ? slot[9] : [],
-              studentGroupIds: Array.isArray(slot[10]) ? slot[10] : []
+              hallGroupIds: [],
+              facultyGroupIds: [],
+              studentIds: [],
+              studentGroupIds: []
             }
             return timetableSlot
           }
