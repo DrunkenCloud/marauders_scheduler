@@ -20,7 +20,7 @@ export enum EntityType {
   COURSE = 'course',
   STUDENT_GROUP = 'studentGroup',
   FACULTY_GROUP = 'facultyGroup',
-  HALL_GROUP = 'HALL_GROUP',
+  HALL_GROUP = 'hallGroup',
   SCHEDULE_COURSES = 'scheduleCourses'
 }
 
