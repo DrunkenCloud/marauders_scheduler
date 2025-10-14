@@ -4,16 +4,15 @@ import { ApiResponse } from '@/types'
 
 // GET /api/hall-groups/[id]/members - Get all members of a hall group
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const groupId = parseInt(id)
 
     const members = await prisma.hallGroupMembership.findMany({
       where: {
-        hallGroupId: groupId
+        hallGroupId: id
       },
       include: {
         hall: {
@@ -76,7 +75,6 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const groupId = parseInt(id)
     const body = await request.json()
     const { hallIds } = body
 
@@ -93,7 +91,7 @@ export async function POST(
 
     // Check if group exists
     const group = await prisma.hallGroup.findUnique({
-      where: { id: groupId }
+      where: { id }
     })
 
     if (!group) {
@@ -132,7 +130,7 @@ export async function POST(
         prisma.hallGroupMembership.create({
           data: {
             hallId,
-            hallGroupId: groupId
+            hallGroupId: id
           },
           include: {
             hall: {
@@ -186,7 +184,6 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const groupId = parseInt(id)
     const body = await request.json()
     const { hallIds } = body
 
@@ -204,7 +201,7 @@ export async function DELETE(
     // Remove memberships
     const result = await prisma.hallGroupMembership.deleteMany({
       where: {
-        hallGroupId: groupId,
+        hallGroupId: id,
         hallId: { in: hallIds }
       }
     })

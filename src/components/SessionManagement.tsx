@@ -15,8 +15,8 @@ export default function SessionManagement({ isOpen, onClose }: SessionManagement
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)
   const [sessionModalMode, setSessionModalMode] = useState<'create' | 'edit'>('create')
   const [editingSession, setEditingSession] = useState<SessionConfig | null>(null)
-  const [deletingSessionId, setDeletingSessionId] = useState<number | null>(null)
-  const [copyingFromSessionId, setCopyingFromSessionId] = useState<number | null>(null)
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null)
+  const [copyingFromSessionId, setCopyingFromSessionId] = useState<string | null>(null)
 
   const handleCreateSession = () => {
     setSessionModalMode('create')
@@ -30,7 +30,7 @@ export default function SessionManagement({ isOpen, onClose }: SessionManagement
     setIsSessionModalOpen(true)
   }
 
-  const handleDeleteSession = async (sessionId: number) => {
+  const handleDeleteSession = async (sessionId: string) => {
     if (sessions.length <= 1) {
       alert('Cannot delete the last session. At least one session must exist.')
       return
@@ -47,7 +47,7 @@ export default function SessionManagement({ isOpen, onClose }: SessionManagement
     }
   }
 
-  const handleCopyFromSession = async (sourceSessionId: number) => {
+  const handleCopyFromSession = async (sourceSessionId: string) => {
     if (!currentSession) {
       alert('Please select a target session first.')
       return

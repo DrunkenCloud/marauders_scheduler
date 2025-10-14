@@ -21,8 +21,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(response, { status: 400 })
     }
 
-    const entityIdNum = parseInt(entityId)
-    const sessionIdNum = parseInt(sessionId)
+    // entityId and sessionId are already strings, no need to parse them to integers
 
     let availableCourses: any[] = []
 
@@ -31,11 +30,11 @@ export async function GET(request: NextRequest) {
         // Get courses the student is enrolled in
         availableCourses = await prisma.course.findMany({
           where: {
-            sessionId: sessionIdNum,
+            sessionId: sessionId,
             OR: [
               {
                 studentEnrollments: {
-                  some: { studentId: entityIdNum }
+                  some: { studentId: entityId }
                 }
               },
               {
@@ -43,7 +42,7 @@ export async function GET(request: NextRequest) {
                   some: {
                     studentGroup: {
                       studentMemberships: {
-                        some: { studentId: entityIdNum }
+                        some: { studentId: entityId }
                       }
                     }
                   }
@@ -68,11 +67,11 @@ export async function GET(request: NextRequest) {
         // Get courses the faculty teaches
         availableCourses = await prisma.course.findMany({
           where: {
-            sessionId: sessionIdNum,
+            sessionId: sessionId,
             OR: [
               {
                 compulsoryFaculties: {
-                  some: { id: entityIdNum }
+                  some: { id: entityId }
                 }
               },
               {
@@ -80,7 +79,7 @@ export async function GET(request: NextRequest) {
                   some: {
                     facultyGroup: {
                       facultyMemberships: {
-                        some: { facultyId: entityIdNum }
+                        some: { facultyId: entityId }
                       }
                     }
                   }
@@ -105,11 +104,11 @@ export async function GET(request: NextRequest) {
         // Get courses that use this hall
         availableCourses = await prisma.course.findMany({
           where: {
-            sessionId: sessionIdNum,
+            sessionId: sessionId,
             OR: [
               {
                 compulsoryHalls: {
-                  some: { id: entityIdNum }
+                  some: { id: entityId }
                 }
               },
               {
@@ -117,7 +116,7 @@ export async function GET(request: NextRequest) {
                   some: {
                     hallGroup: {
                       hallMemberships: {
-                        some: { hallId: entityIdNum }
+                        some: { hallId: entityId }
                       }
                     }
                   }
@@ -142,9 +141,9 @@ export async function GET(request: NextRequest) {
         // Get courses the student group is enrolled in
         availableCourses = await prisma.course.findMany({
           where: {
-            sessionId: sessionIdNum,
+            sessionId: sessionId,
             studentGroupEnrollments: {
-              some: { studentGroupId: entityIdNum }
+              some: { studentGroupId: entityId }
             }
           },
           include: {
@@ -164,9 +163,9 @@ export async function GET(request: NextRequest) {
         // Get courses the faculty group teaches
         availableCourses = await prisma.course.findMany({
           where: {
-            sessionId: sessionIdNum,
+            sessionId: sessionId,
             compulsoryFacultyGroups: {
-              some: { facultyGroupId: entityIdNum }
+              some: { facultyGroupId: entityId }
             }
           },
           include: {
@@ -186,9 +185,9 @@ export async function GET(request: NextRequest) {
         // Get courses that use this hall group
         availableCourses = await prisma.course.findMany({
           where: {
-            sessionId: sessionIdNum,
+            sessionId: sessionId,
             compulsoryHallGroups: {
-              some: { hallGroupId: entityIdNum }
+              some: { hallGroupId: entityId }
             }
           },
           include: {
@@ -217,7 +216,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Filter courses that still need scheduling (scheduledCount < totalSessions)
-    const coursesNeedingScheduling = availableCourses.filter(course => 
+    const coursesNeedingScheduling = availableCourses.filter(course =>
       course.scheduledCount < course.totalSessions
     )
 
@@ -231,7 +230,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error fetching available courses:', error)
-    
+
     const response: ApiResponse = {
       success: false,
       error: {

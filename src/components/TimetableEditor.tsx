@@ -6,7 +6,7 @@ import { DAYS_OF_WEEK, validateTimetable } from '@/lib/timetable'
 import { useSession } from '@/contexts/SessionContext'
 
 interface TimetableEditorProps {
-  entityId: number
+  entityId: string
   entityType: EntityType
   timetable?: EntityTimetable
   entityTiming?: EntityTiming
@@ -54,7 +54,7 @@ export default function TimetableEditor({
   const [loadingCourses, setLoadingCourses] = useState(false)
 
   // Helper function to check if a course is fully scheduled
-  const isCourseFullyScheduled = (courseId: number): boolean => {
+  const isCourseFullyScheduled = (courseId: string): boolean => {
     const course = courses.find(c => c.id === courseId)
     return Boolean(course && (course.scheduledCount || 0) >= (course.totalSessions || 0))
   }
@@ -215,7 +215,7 @@ export default function TimetableEditor({
   }, [currentSession, entityType, entityId])
 
   // Helper function to get entity name for conflict messages
-  const getEntityName = async (entityType: string, entityId: number): Promise<string> => {
+  const getEntityName = async (entityType: string, entityId: string): Promise<string> => {
     try {
       let endpoint = ''
       switch (entityType) {
@@ -265,7 +265,7 @@ export default function TimetableEditor({
   }
 
   // Update course scheduled count
-  const updateCourseScheduledCount = async (courseId: number, increment: number): Promise<boolean> => {
+  const updateCourseScheduledCount = async (courseId: string, increment: number): Promise<boolean> => {
     try {
       const response = await fetch(`/api/courses/${courseId}/scheduled-count`, {
         method: 'PATCH',
@@ -650,7 +650,7 @@ export default function TimetableEditor({
     ]
 
     // Helper function to update a single entity's timetable
-    const updateEntityTimetable = async (entityType: string, entityId: number) => {
+    const updateEntityTimetable = async (entityType: string, entityId: string) => {
       try {
         // Get current timetable
         const response = await fetch(`/api/timetables?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
@@ -1205,7 +1205,7 @@ export default function TimetableEditor({
                     <select
                       value={editingSlot.courseId || ''}
                       onChange={(e) => {
-                        const courseId = parseInt(e.target.value)
+                        const courseId = e.target.value
                         const course = courses.find(c => c.id === courseId)
                         setEditingSlot({
                           ...editingSlot,

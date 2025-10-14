@@ -4,16 +4,15 @@ import { ApiResponse } from '@/types'
 
 // GET /api/student-groups/[id]/members - Get all members of a student group
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params
-    const groupId = parseInt(id)
 
     const members = await prisma.studentGroupMembership.findMany({
       where: {
-        studentGroupId: groupId
+        studentGroupId: id
       },
       include: {
         student: {
@@ -61,7 +60,6 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const groupId = parseInt(id)
     const body = await request.json()
     const { studentIds } = body
 
@@ -78,7 +76,7 @@ export async function POST(
 
     // Check if group exists
     const group = await prisma.studentGroup.findUnique({
-      where: { id: groupId }
+      where: { id }
     })
 
     if (!group) {
@@ -117,7 +115,7 @@ export async function POST(
         prisma.studentGroupMembership.create({
           data: {
             studentId,
-            studentGroupId: groupId
+            studentGroupId: id
           },
           include: {
             student: {
@@ -168,7 +166,6 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const groupId = parseInt(id)
     const body = await request.json()
     const { studentIds } = body
 
@@ -186,7 +183,7 @@ export async function DELETE(
     // Remove memberships
     const result = await prisma.studentGroupMembership.deleteMany({
       where: {
-        studentGroupId: groupId,
+        studentGroupId: id,
         studentId: { in: studentIds }
       }
     })

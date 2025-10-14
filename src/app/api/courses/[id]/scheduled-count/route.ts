@@ -8,10 +8,9 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const courseId = parseInt(id)
     const { increment } = await request.json()
 
-    if (isNaN(courseId)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -37,7 +36,7 @@ export async function PATCH(
 
     // Get current course data to validate
     const currentCourse = await prisma.course.findUnique({
-      where: { id: courseId },
+      where: { id },
       select: {
         id: true,
         code: true,
@@ -88,7 +87,7 @@ export async function PATCH(
 
     // Update the scheduled count
     const updatedCourse = await prisma.course.update({
-      where: { id: courseId },
+      where: { id },
       data: {
         scheduledCount: newScheduledCount
       },

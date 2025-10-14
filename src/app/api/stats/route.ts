@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
 
-    if (!sessionId || isNaN(parseInt(sessionId))) {
+    if (!sessionId) {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -19,8 +19,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(response, { status: 400 })
     }
 
-    const sessionIdInt = parseInt(sessionId)
-
     // Get counts for all entities in the session
     const [
       studentsCount,
@@ -31,13 +29,13 @@ export async function GET(request: NextRequest) {
       facultyGroupsCount,
       hallGroupsCount
     ] = await Promise.all([
-      prisma.student.count({ where: { sessionId: sessionIdInt } }),
-      prisma.faculty.count({ where: { sessionId: sessionIdInt } }),
-      prisma.hall.count({ where: { sessionId: sessionIdInt } }),
-      prisma.course.count({ where: { sessionId: sessionIdInt } }),
-      prisma.studentGroup.count({ where: { sessionId: sessionIdInt } }),
-      prisma.facultyGroup.count({ where: { sessionId: sessionIdInt } }),
-      prisma.hallGroup.count({ where: { sessionId: sessionIdInt } })
+      prisma.student.count({ where: { sessionId: sessionId } }),
+      prisma.faculty.count({ where: { sessionId: sessionId } }),
+      prisma.hall.count({ where: { sessionId: sessionId } }),
+      prisma.course.count({ where: { sessionId: sessionId } }),
+      prisma.studentGroup.count({ where: { sessionId: sessionId } }),
+      prisma.facultyGroup.count({ where: { sessionId: sessionId } }),
+      prisma.hallGroup.count({ where: { sessionId: sessionId } })
     ])
 
     const stats: DashboardStats = {

@@ -8,10 +8,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:generate": "pnpmx prisma generate",
-    "db:push": "pnpmx prisma db push",
-    "db:migrate": "pnpmx prisma migrate dev",
-    "db:studio": "pnpmx prisma studio",
+    "db:generate": "pnpx prisma generate",
+    "db:push": "pnpx prisma db push",
+    "db:migrate": "pnpx prisma migrate dev",
+    "db:studio": "pnpx prisma studio",
     "db:seed": "tsx prisma/seed.ts"
   },
   "repository": {

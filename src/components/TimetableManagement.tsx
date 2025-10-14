@@ -6,7 +6,7 @@ import { useSession } from '@/contexts/SessionContext'
 import TimetableEditor from './TimetableEditor'
 
 interface TimetableManagementProps {
-  entityId: number
+  entityId: string
   entityType: EntityType
   entityName?: string
   onBack?: () => void

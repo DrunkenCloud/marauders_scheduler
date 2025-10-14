@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     const where = {
-      sessionId: parseInt(sessionId),
+      sessionId: sessionId,
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' as const } },
@@ -204,40 +204,40 @@ export async function POST(request: NextRequest) {
       data: {
         name: name.trim(),
         code: code.trim().toUpperCase(),
-        sessionId: parseInt(sessionId),
+        sessionId: sessionId,
         classDuration: parseInt(classDuration),
         sessionsPerLecture: parseInt(sessionsPerLecture),
         totalSessions: parseInt(totalSessions),
         timetable: timetable || defaultTimetable,
         // Connect faculty
         compulsoryFaculties: {
-          connect: facultyIds.map((id: number) => ({ id }))
+          connect: facultyIds.map((id: string) => ({ id }))
         },
         // Connect halls
         compulsoryHalls: {
-          connect: hallIds.map((id: number) => ({ id }))
+          connect: hallIds.map((id: string) => ({ id }))
         },
         // Create student enrollments
         studentEnrollments: {
-          create: studentIds.map((studentId: number) => ({
+          create: studentIds.map((studentId: string) => ({
             studentId
           }))
         },
         // Create student group enrollments
         studentGroupEnrollments: {
-          create: studentGroupIds.map((studentGroupId: number) => ({
+          create: studentGroupIds.map((studentGroupId: string) => ({
             studentGroupId
           }))
         },
         // Create faculty group connections
         compulsoryFacultyGroups: {
-          create: facultyGroupIds.map((facultyGroupId: number) => ({
+          create: facultyGroupIds.map((facultyGroupId: string) => ({
             facultyGroupId
           }))
         },
         // Create hall group connections
         compulsoryHallGroups: {
-          create: (hallGroups.length > 0 ? hallGroups : hallGroupIds.map((id: number) => ({ id, requiredCount: 1 }))).map((group: any) => ({
+          create: (hallGroups.length > 0 ? hallGroups : hallGroupIds.map((id: string) => ({ id, requiredCount: 1 }))).map((group: any) => ({
             hallGroupId: group.id || group,
             requiredCount: group.requiredCount || 1
           }))

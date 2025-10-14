@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ApiResponse, PaginationInfo } from '@/types'
+import { ApiResponse } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     const where = {
-      sessionId: parseInt(sessionId),
+      sessionId: sessionId,
       ...(search && {
         digitalId: {
           equals: isNaN(parseInt(search)) ? undefined : parseInt(search)
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error fetching students:', error)
-    
+
     const response: ApiResponse = {
       success: false,
       error: {
@@ -83,9 +83,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { 
-      digitalId, 
-      sessionId, 
+    const {
+      digitalId,
+      sessionId,
       timetable = {},
       startHour = 8,
       startMinute = 10,
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
     const student = await prisma.student.create({
       data: {
         digitalId: parseInt(digitalId),
-        sessionId: parseInt(sessionId),
+        sessionId: sessionId,
         timetable: timetable || defaultTimetable,
         startHour: parseInt(startHour),
         startMinute: parseInt(startMinute),
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response, { status: 201 })
   } catch (error: any) {
     console.error('Error creating student:', error)
-    
+
     let errorMessage = 'Failed to create student'
     if (error.code === 'P2002') {
       errorMessage = 'A student with this Digital ID already exists'

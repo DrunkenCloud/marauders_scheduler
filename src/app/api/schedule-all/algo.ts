@@ -59,7 +59,7 @@ function calculateCurrentWorkload(timetable: any): { [day: string]: number } {
 }
 
 // Helper function to calculate total scheduled duration for an entity across all courses (keep in minutes)
-function calculateTotalScheduledDuration(entityId: number, courses: CompiledCourseData[], entityType: 'student' | 'faculty' | 'hall' | 'studentGroup' | 'facultyGroup'): number {
+function calculateTotalScheduledDuration(entityId: string, courses: CompiledCourseData[], entityType: 'student' | 'faculty' | 'hall' | 'studentGroup' | 'facultyGroup'): number {
   let totalDuration = 0
 
   for (const course of courses) {
@@ -93,7 +93,7 @@ function calculateTotalScheduledDuration(entityId: number, courses: CompiledCour
   return totalDuration
 }
 
-export async function compileSchedulingData(sessionId: number, courseIds: number[]): Promise<CompiledSchedulingData> {
+export async function compileSchedulingData(sessionId: string, courseIds: string[]): Promise<CompiledSchedulingData> {
   const courses = await prisma.course.findMany({
     where: {
       sessionId,
@@ -141,9 +141,9 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
     }
   })
 
-  const compiled: CompiledCourseData[] = courses.map((course) => {
-    const studentIdSet = new Set<number>()
-    const studentGroupIdSet = new Set<number>()
+  const compiled: CompiledCourseData[] = courses.map((course: any) => {
+    const studentIdSet = new Set<string>()
+    const studentGroupIdSet = new Set<string>()
     // Direct student enrollments
     for (const enrollment of course.studentEnrollments) {
       if (enrollment.student) studentIdSet.add(enrollment.student.id)
@@ -159,8 +159,8 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
       }
     }
 
-    const facultyIdSet = new Set<number>()
-    const facultyGroupIdSet = new Set<number>()
+    const facultyIdSet = new Set<string>()
+    const facultyGroupIdSet = new Set<string>()
     // Direct compulsory faculties
     for (const f of course.compulsoryFaculties) {
       facultyIdSet.add(f.id)
@@ -176,8 +176,8 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
       }
     }
 
-    const hallIdSet = new Set<number>()
-    const hallGroupIdSet = new Set<number>()
+    const hallIdSet = new Set<string>()
+    const hallGroupIdSet = new Set<string>()
     // Direct compulsory halls
     for (const h of course.compulsoryHalls) {
       hallIdSet.add(h.id)
@@ -212,11 +212,11 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
   })
 
   // Fetch all entities that will be involved in scheduling
-  const allStudentIds = new Set<number>()
-  const allFacultyIds = new Set<number>()
-  const allHallIds = new Set<number>()
-  const allStudentGroupIds = new Set<number>()
-  const allFacultyGroupIds = new Set<number>()
+  const allStudentIds = new Set<string>()
+  const allFacultyIds = new Set<string>()
+  const allHallIds = new Set<string>()
+  const allStudentGroupIds = new Set<string>()
+  const allFacultyGroupIds = new Set<string>()
 
   for (const course of compiled) {
     course.studentIds.forEach(id => allStudentIds.add(id))
@@ -246,7 +246,7 @@ export async function compileSchedulingData(sessionId: number, courseIds: number
   ])
 
   // Create unified entity dictionary with all data
-  const allEntities: { [entityId: number]: EntityData } = {}
+  const allEntities: { [entityId: string]: EntityData } = {}
 
   // Add students
   for (const student of students) {

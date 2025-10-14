@@ -59,7 +59,7 @@ export default function HallManagement() {
             </div>
           ) : viewMode === 'timetable' ? (
             <TimetableManagement
-              entityId={selectedHall?.id || 0}
+              entityId={selectedHall?.id || ''}
               entityType={EntityType.HALL}
               entityName={selectedHall?.name}
               onBack={handleBackFromTimetable}

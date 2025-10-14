@@ -42,7 +42,7 @@ export interface SessionTiming {
 
 // Session Types
 export interface SessionConfig {
-  id: number
+  id: string
   name: string
   details?: string
   createdAt: Date
@@ -51,7 +51,7 @@ export interface SessionConfig {
 
 // Student Types
 export interface Student {
-  id: number
+  id: string
   digitalId: number
   timetable: any
   startHour: number
@@ -61,12 +61,12 @@ export interface Student {
   createdAt: string
   updatedAt: string
   session: {
-    id: number
+    id: string
     name: string
   }
   studentGroupMemberships: Array<{
     studentGroup: {
-      id: number
+      id: string
       groupName: string
     }
   }>
@@ -74,7 +74,7 @@ export interface Student {
 
 // Faculty Types
 export interface Faculty {
-  id: number
+  id: string
   name: string
   shortForm: string | null
   timetable: any
@@ -85,17 +85,17 @@ export interface Faculty {
   createdAt: string
   updatedAt: string
   session: {
-    id: number
+    id: string
     name: string
   }
   facultyGroupMemberships: Array<{
     facultyGroup: {
-      id: number
+      id: string
       groupName: string
     }
   }>
   coursesTaught: Array<{
-    id: number
+    id: string
     name: string
     code: string
   }>
@@ -103,7 +103,7 @@ export interface Faculty {
 
 // Hall Types
 export interface Hall {
-  id: number
+  id: string
   name: string
   Floor: string
   Building: string
@@ -116,17 +116,17 @@ export interface Hall {
   createdAt: string
   updatedAt: string
   session: {
-    id: number
+    id: string
     name: string
   }
   hallGroupMemberships: Array<{
     hallGroup: {
-      id: number
+      id: string
       groupName: string
     }
   }>
   coursesTaught: Array<{
-    id: number
+    id: string
     name: string
     code: string
   }>
@@ -134,7 +134,7 @@ export interface Hall {
 
 // Course Types
 export interface Course {
-  id: number
+  id: string
   name: string
   code: string
   classDuration: number
@@ -145,16 +145,16 @@ export interface Course {
   createdAt: string
   updatedAt: string
   session: {
-    id: number
+    id: string
     name: string
   }
   compulsoryFaculties: Array<{
-    id: number
+    id: string
     name: string
     shortForm: string | null
   }>
   compulsoryHalls: Array<{
-    id: number
+    id: string
     name: string
     Building: string
     Floor: string
@@ -162,26 +162,26 @@ export interface Course {
   }>
   studentEnrollments: Array<{
     student: {
-      id: number
+      id: string
       digitalId: number
     }
   }>
   studentGroupEnrollments: Array<{
     studentGroup: {
-      id: number
+      id: string
       groupName: string
     }
   }>
   compulsoryFacultyGroups?: Array<{
     facultyGroup: {
-      id: number
+      id: string
       groupName: string
     }
     requiredCount: number
   }>
   compulsoryHallGroups?: Array<{
     hallGroup: {
-      id: number
+      id: string
       groupName: string
     }
     requiredCount: number
@@ -190,7 +190,7 @@ export interface Course {
 
 // Group Types
 export interface StudentGroup {
-  id: number
+  id: string
   groupName: string
   startHour: number
   startMinute: number
@@ -203,14 +203,14 @@ export interface StudentGroup {
   }
   studentMemberships?: Array<{
     student: {
-      id: number
+      id: string
       digitalId: number
     }
   }>
 }
 
 export interface FacultyGroup {
-  id: number
+  id: string
   groupName: string
   startHour: number
   startMinute: number
@@ -223,7 +223,7 @@ export interface FacultyGroup {
   }
   facultyMemberships?: Array<{
     faculty: {
-      id: number
+      id: string
       name: string
       shortForm?: string
     }
@@ -231,7 +231,7 @@ export interface FacultyGroup {
 }
 
 export interface HallGroup {
-  id: number
+  id: string
   groupName: string
   startHour: number
   startMinute: number
@@ -244,7 +244,7 @@ export interface HallGroup {
   }
   hallMemberships?: Array<{
     hall: {
-      id: number
+      id: string
       name: string
       Floor: string
       Building: string
@@ -284,31 +284,31 @@ export interface TimetableSlot {
   startHour: number     // 0-23
   startMinute: number   // 0-59
   duration: number      // minutes
-  courseId?: number     // for course slots
+  courseId?: string     // for course slots
   courseCode?: string   // for course slots
   blockerReason?: string // for blocker slots
-  hallIds?: number[]    // assigned halls
-  facultyIds?: number[] // assigned faculties
-  hallGroupIds?: number[] // assigned hall groups
-  facultyGroupIds?: number[] // assigned faculty groups
-  studentIds?: number[] // assigned students
-  studentGroupIds?: number[] // assigned student groups
+  hallIds?: string[]    // assigned halls
+  facultyIds?: string[] // assigned faculties
+  hallGroupIds?: string[] // assigned hall groups
+  facultyGroupIds?: string[] // assigned faculty groups
+  studentIds?: string[] // assigned students
+  studentGroupIds?: string[] // assigned student groups
 }
 
 // Scheduling Algorithm Types
 export interface CompiledCourseData {
-  courseId: number
+  courseId: string
   courseCode: string
   classDuration: number
   sessionsPerLecture: number
   totalSessions: number
   scheduledCount: number
-  studentIds: number[]
-  facultyIds: number[]
-  hallIds: number[]
-  studentGroupIds: number[]
-  facultyGroupIds: number[]
-  hallGroupIds: number[]
+  studentIds: string[]
+  facultyIds: string[]
+  hallIds: string[]
+  studentGroupIds: string[]
+  facultyGroupIds: string[]
+  hallGroupIds: string[]
 }
 
 export interface EntityWorkload {
@@ -320,7 +320,7 @@ export interface EntityWorkload {
 }
 
 export interface EntityData {
-  id: number
+  id: string
   timetable: any
   startHour: number
   startMinute: number
@@ -330,9 +330,9 @@ export interface EntityData {
 }
 
 export interface CompiledSchedulingData {
-  sessionId: number
+  sessionId: string
   courses: CompiledCourseData[]
-  allEntities: { [entityId: number]: EntityData }
+  allEntities: { [entityId: string]: EntityData }
 }
 
 export interface SlotFragment {
@@ -340,15 +340,15 @@ export interface SlotFragment {
   type: 'course' | 'blocker'
   startHour: number
   startMinute: number
-  courseId?: number
+  courseId?: string
   courseCode?: string
   blockerReason?: string
-  hallIds?: number[]
-  facultyIds?: number[]
-  hallGroupIds?: number[]
-  facultyGroupIds?: number[]
-  studentIds?: number[]
-  studentGroupIds?: number[]
+  hallIds?: string[]
+  facultyIds?: string[]
+  hallGroupIds?: string[]
+  facultyGroupIds?: string[]
+  studentIds?: string[]
+  studentGroupIds?: string[]
 }
 
 // Additional Timetable Types
@@ -370,7 +370,7 @@ export interface DaySchedule {
 }
 
 export interface EntityTimetable {
-  entityId: number
+  entityId: string
   entityType: EntityType
   schedule: DaySchedule
   isComplete: boolean    // true for students, can be false for others

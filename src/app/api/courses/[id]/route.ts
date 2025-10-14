@@ -7,10 +7,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
 
-    if (isNaN(id)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -125,8 +124,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
     const body = await request.json()
     const {
       name,
@@ -144,7 +142,7 @@ export async function PUT(
       hallGroups
     } = body
 
-    if (isNaN(id)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -243,13 +241,13 @@ export async function PUT(
     // Handle enrollment updates
     if (facultyIds !== undefined) {
       updateData.compulsoryFaculties = {
-        set: facultyIds.map((id: number) => ({ id }))
+        set: facultyIds.map((id: string) => ({ id }))
       }
     }
 
     if (hallIds !== undefined) {
       updateData.compulsoryHalls = {
-        set: hallIds.map((id: number) => ({ id }))
+        set: hallIds.map((id: string) => ({ id }))
       }
     }
 
@@ -264,7 +262,7 @@ export async function PUT(
       if (studentIds.length > 0) {
         studentEnrollmentUpdates = {
           studentEnrollments: {
-            create: studentIds.map((studentId: number) => ({
+            create: studentIds.map((studentId: string) => ({
               studentId
             }))
           }
@@ -282,7 +280,7 @@ export async function PUT(
       if (studentGroupIds.length > 0) {
         studentGroupEnrollmentUpdates = {
           studentGroupEnrollments: {
-            create: studentGroupIds.map((studentGroupId: number) => ({
+            create: studentGroupIds.map((studentGroupId: string) => ({
               studentGroupId
             }))
           }
@@ -300,7 +298,7 @@ export async function PUT(
       if (facultyGroupIds.length > 0) {
         facultyGroupUpdates = {
           compulsoryFacultyGroups: {
-            create: facultyGroupIds.map((facultyGroupId: number) => ({
+            create: facultyGroupIds.map((facultyGroupId: string) => ({
               facultyGroupId
             }))
           }
@@ -315,7 +313,7 @@ export async function PUT(
         where: { courseId: id }
       })
 
-      const groupsToCreate = hallGroups || hallGroupIds?.map((id: number) => ({ id, requiredCount: 1 })) || []
+      const groupsToCreate = hallGroups || hallGroupIds?.map((id: string) => ({ id, requiredCount: 1 })) || []
       
       if (groupsToCreate.length > 0) {
         hallGroupUpdates = {
@@ -434,10 +432,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
 
-    if (isNaN(id)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {

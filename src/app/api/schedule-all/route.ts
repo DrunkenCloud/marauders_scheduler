@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 400 })
     }
 
-    // Validate that all courseIds are numbers
-    const invalidCourseIds = courseIds.filter(id => typeof id !== 'number' || isNaN(id))
+    // Validate that all courseIds are strings (UUIDs)
+    const invalidCourseIds = courseIds.filter(id => typeof id !== 'string' || !id.trim())
     if (invalidCourseIds.length > 0) {
       const response: ApiResponse = {
         success: false,

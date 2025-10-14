@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     }
 
     const where = {
-      sessionId: parseInt(sessionId),
+      sessionId: sessionId,
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' as const } },
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
 
     // Get unique buildings and floors for filtering
     const allHalls = await prisma.hall.findMany({
-      where: { sessionId: parseInt(sessionId) },
+      where: { sessionId: sessionId },
       select: { Building: true, Floor: true },
       distinct: ['Building', 'Floor']
     })
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
         Floor: floor.trim(),
         Building: building.trim(),
         shortForm: shortForm?.trim() || null,
-        sessionId: parseInt(sessionId),
+        sessionId: sessionId,
         timetable: timetable || defaultTimetable
       },
       include: {

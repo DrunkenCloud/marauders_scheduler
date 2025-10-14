@@ -48,7 +48,7 @@ export function generateTimeSlots(timing: EntityTiming, slotDuration: number = D
  * Initialize empty timetable for an entity
  */
 export function initializeEmptyTimetable(
-  entityId: number,
+  entityId: string,
   entityType: EntityType
 ): EntityTimetable {
   const schedule: DaySchedule = {}
@@ -101,7 +101,7 @@ export function convertToLegacyFormat(timetable: EntityTimetable): Record<string
  */
 export function convertFromLegacyFormat(
   legacyTimetable: any,
-  entityId: number,
+  entityId: string,
   entityType: EntityType
 ): EntityTimetable {
   const schedule: DaySchedule = {}

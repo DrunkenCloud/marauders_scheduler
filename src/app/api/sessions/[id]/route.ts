@@ -3,14 +3,13 @@ import { prisma } from '@/lib/prisma'
 import { ApiResponse, SessionConfig } from '@/types'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const sessionId = parseInt(idParam)
+    const { id } = await params
     
-    if (isNaN(sessionId)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -23,7 +22,7 @@ export async function GET(
     }
 
     const session = await prisma.session.findUnique({
-      where: { id: sessionId }
+      where: { id }
     })
 
     if (!session) {
@@ -68,12 +67,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const sessionId = parseInt(idParam)
+    const { id } = await params
     const body = await request.json()
     const { name, details } = body
 
-    if (isNaN(sessionId)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -86,7 +84,7 @@ export async function PUT(
     }
 
     const session = await prisma.session.update({
-      where: { id: sessionId },
+      where: { id },
       data: {
         ...(name && { name }),
         ...(details !== undefined && { details })
@@ -126,14 +124,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const sessionId = parseInt(idParam)
+    const { id } = await params
 
-    if (isNaN(sessionId)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -146,7 +143,7 @@ export async function DELETE(
     }
 
     await prisma.session.delete({
-      where: { id: sessionId }
+      where: { id }
     })
 
     const response: ApiResponse = {

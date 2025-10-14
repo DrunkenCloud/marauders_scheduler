@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const facultyGroups = await prisma.facultyGroup.findMany({
       where: {
-        sessionId: parseInt(sessionId)
+        sessionId: sessionId
       },
       include: {
         facultyMemberships: {
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     const existingGroup = await prisma.facultyGroup.findFirst({
       where: {
         groupName: groupName,
-        sessionId: parseInt(sessionId)
+        sessionId: sessionId
       }
     })
 
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     const facultyGroup = await prisma.facultyGroup.create({
       data: {
         groupName,
-        sessionId: parseInt(sessionId),
+        sessionId: sessionId,
         timetable: emptyTimetable,
         startHour: startHour || 8,
         startMinute: startMinute || 10,

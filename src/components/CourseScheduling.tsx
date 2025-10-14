@@ -7,7 +7,7 @@ import { Course } from '@/types'
 export default function CourseScheduling() {
   const { currentSession } = useSession()
   const [courses, setCourses] = useState<Course[]>([])
-  const [selectedCourses, setSelectedCourses] = useState<number[]>([])
+  const [selectedCourses, setSelectedCourses] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [scheduling, setScheduling] = useState(false)
 
@@ -33,7 +33,7 @@ export default function CourseScheduling() {
     loadCourses()
   }, [currentSession])
 
-  const handleCourseToggle = (courseId: number) => {
+  const handleCourseToggle = (courseId: string) => {
     setSelectedCourses(prev => 
       prev.includes(courseId) 
         ? prev.filter(id => id !== courseId)

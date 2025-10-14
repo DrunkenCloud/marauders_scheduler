@@ -11,8 +11,8 @@ interface SessionContextType {
   setCurrentSession: (session: SessionConfig) => void
   refreshSessions: () => Promise<void>
   createSession: (sessionData: Partial<SessionConfig>) => Promise<SessionConfig | null>
-  updateSession: (id: number, sessionData: Partial<SessionConfig>) => Promise<SessionConfig | null>
-  deleteSession: (id: number) => Promise<boolean>
+  updateSession: (id: string, sessionData: Partial<SessionConfig>) => Promise<SessionConfig | null>
+  deleteSession: (id: string) => Promise<boolean>
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined)
@@ -89,7 +89,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     }
   }
 
-  const updateSession = async (id: number, sessionData: Partial<SessionConfig>): Promise<SessionConfig | null> => {
+  const updateSession = async (id: string, sessionData: Partial<SessionConfig>): Promise<SessionConfig | null> => {
     try {
       setError(null)
       
@@ -123,7 +123,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     }
   }
 
-  const deleteSession = async (id: number): Promise<boolean> => {
+  const deleteSession = async (id: string): Promise<boolean> => {
     try {
       setError(null)
       

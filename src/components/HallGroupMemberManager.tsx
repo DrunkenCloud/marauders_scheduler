@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import { Hall, HallGroup } from '@/types'
 
 interface GroupMember {
-  id: number
-  hallId: number
-  hallGroupId: number
+  id: string
+  hallId: string
+  hallGroupId: string
   createdAt: string
   updatedAt: string
   hall: Hall
@@ -14,7 +14,7 @@ interface GroupMember {
 
 interface HallGroupMemberManagerProps {
   group: HallGroup
-  sessionId: number
+  sessionId: string
   onClose: () => void
   onMembersUpdated: () => void
 }
@@ -27,8 +27,8 @@ export function HallGroupMemberManager({
 }: HallGroupMemberManagerProps) {
   const [members, setMembers] = useState<GroupMember[]>([])
   const [availableHalls, setAvailableHalls] = useState<Hall[]>([])
-  const [selectedHalls, setSelectedHalls] = useState<number[]>([])
-  const [selectedMembers, setSelectedMembers] = useState<number[]>([])
+  const [selectedHalls, setSelectedHalls] = useState<string[]>([])
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')

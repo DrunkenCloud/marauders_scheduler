@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     const where = {
-      sessionId: parseInt(sessionId),
+      sessionId: sessionId,
       ...(search && {
         OR: [
           { name: { contains: search, mode: 'insensitive' as const } },
@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       data: {
         name: name.trim(),
         shortForm: shortForm?.trim() || null,
-        sessionId: parseInt(sessionId),
+        sessionId: sessionId,
         timetable: timetable || defaultTimetable,
         startHour: parseInt(startHour),
         startMinute: parseInt(startMinute),

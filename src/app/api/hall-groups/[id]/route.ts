@@ -4,12 +4,11 @@ import { ApiResponse } from '@/types'
 
 // GET /api/hall-groups/[id] - Get specific hall group
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
 
     const hallGroup = await prisma.hallGroup.findUnique({
       where: { id },
@@ -70,8 +69,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
     const body = await request.json()
     const { groupName, startHour, startMinute, endHour, endMinute, timetable } = body
 
@@ -165,12 +163,11 @@ export async function PUT(
 
 // DELETE /api/hall-groups/[id] - Delete hall group
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
 
     // Check if group exists
     const existingGroup = await prisma.hallGroup.findUnique({

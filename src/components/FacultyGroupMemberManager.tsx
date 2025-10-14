@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react'
 import { Faculty, FacultyGroup } from '@/types'
 
 interface GroupMember {
-  id: number
-  facultyId: number
-  facultyGroupId: number
+  id: string
+  facultyId: string
+  facultyGroupId: string
   createdAt: string
   updatedAt: string
   faculty: Faculty
@@ -14,7 +14,7 @@ interface GroupMember {
 
 interface FacultyGroupMemberManagerProps {
   group: FacultyGroup
-  sessionId: number
+  sessionId: string
   onClose: () => void
   onMembersUpdated: () => void
 }
@@ -27,8 +27,8 @@ export function FacultyGroupMemberManager({
 }: FacultyGroupMemberManagerProps) {
   const [members, setMembers] = useState<GroupMember[]>([])
   const [availableFaculty, setAvailableFaculty] = useState<Faculty[]>([])
-  const [selectedFaculty, setSelectedFaculty] = useState<number[]>([])
-  const [selectedMembers, setSelectedMembers] = useState<number[]>([])
+  const [selectedFaculty, setSelectedFaculty] = useState<string[]>([])
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')

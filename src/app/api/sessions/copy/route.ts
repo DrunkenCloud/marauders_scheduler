@@ -33,8 +33,8 @@ export async function POST(request: NextRequest) {
 
     // Verify both sessions exist
     const [sourceSession, targetSession] = await Promise.all([
-      prisma.session.findUnique({ where: { id: parseInt(sourceSessionId) } }),
-      prisma.session.findUnique({ where: { id: parseInt(targetSessionId) } })
+      prisma.session.findUnique({ where: { id: sourceSessionId } }),
+      prisma.session.findUnique({ where: { id: targetSessionId } })
     ])
 
     if (!sourceSession || !targetSession) {
@@ -51,74 +51,73 @@ export async function POST(request: NextRequest) {
 
     // Use a transaction to copy all data
     await prisma.$transaction(async (tx) => {
-      const sourceSessionIdInt = parseInt(sourceSessionId)
-      const targetSessionIdInt = parseInt(targetSessionId)
+      // sourceSessionId and targetSessionId are already strings
 
       // Delete existing data in target session
       await Promise.all([
         tx.courseStudentEnrollment.deleteMany({
           where: {
-            course: { sessionId: targetSessionIdInt }
+            course: { sessionId: targetSessionId }
           }
         }),
         tx.courseStudentGroupEnrollment.deleteMany({
           where: {
-            course: { sessionId: targetSessionIdInt }
+            course: { sessionId: targetSessionId }
           }
         }),
         tx.compulsoryFacultyGroup.deleteMany({
           where: {
-            course: { sessionId: targetSessionIdInt }
+            course: { sessionId: targetSessionId }
           }
         }),
         tx.compulsoryHallGroup.deleteMany({
           where: {
-            course: { sessionId: targetSessionIdInt }
+            course: { sessionId: targetSessionId }
           }
         }),
         tx.studentGroupMembership.deleteMany({
           where: {
-            studentGroup: { sessionId: targetSessionIdInt }
+            studentGroup: { sessionId: targetSessionId }
           }
         }),
         tx.facultyGroupMembership.deleteMany({
           where: {
-            facultyGroup: { sessionId: targetSessionIdInt }
+            facultyGroup: { sessionId: targetSessionId }
           }
         }),
         tx.hallGroupMembership.deleteMany({
           where: {
-            hallGroup: { sessionId: targetSessionIdInt }
+            hallGroup: { sessionId: targetSessionId }
           }
         })
       ])
 
       await Promise.all([
-        tx.student.deleteMany({ where: { sessionId: targetSessionIdInt } }),
-        tx.faculty.deleteMany({ where: { sessionId: targetSessionIdInt } }),
-        tx.hall.deleteMany({ where: { sessionId: targetSessionIdInt } }),
-        tx.course.deleteMany({ where: { sessionId: targetSessionIdInt } }),
-        tx.studentGroup.deleteMany({ where: { sessionId: targetSessionIdInt } }),
-        tx.facultyGroup.deleteMany({ where: { sessionId: targetSessionIdInt } }),
-        tx.hallGroup.deleteMany({ where: { sessionId: targetSessionIdInt } })
+        tx.student.deleteMany({ where: { sessionId: targetSessionId } }),
+        tx.faculty.deleteMany({ where: { sessionId: targetSessionId } }),
+        tx.hall.deleteMany({ where: { sessionId: targetSessionId } }),
+        tx.course.deleteMany({ where: { sessionId: targetSessionId } }),
+        tx.studentGroup.deleteMany({ where: { sessionId: targetSessionId } }),
+        tx.facultyGroup.deleteMany({ where: { sessionId: targetSessionId } }),
+        tx.hallGroup.deleteMany({ where: { sessionId: targetSessionId } })
       ])
 
       // Copy students
       const sourceStudents = await tx.student.findMany({
-        where: { sessionId: sourceSessionIdInt },
+        where: { sessionId: sourceSessionId },
         include: {
           studentGroupMemberships: true,
           courseEnrollments: true
         }
       })
 
-      const studentIdMap = new Map<number, number>()
+      const studentIdMap = new Map<string, string>()
       for (const student of sourceStudents) {
         const newStudent = await tx.student.create({
           data: {
             digitalId: student.digitalId,
             timetable: student.timetable as any,
-            sessionId: targetSessionIdInt
+            sessionId: targetSessionId
           }
         })
         studentIdMap.set(student.id, newStudent.id)
@@ -126,20 +125,20 @@ export async function POST(request: NextRequest) {
 
       // Copy faculty
       const sourceFaculty = await tx.faculty.findMany({
-        where: { sessionId: sourceSessionIdInt },
+        where: { sessionId: sourceSessionId },
         include: {
           facultyGroupMemberships: true
         }
       })
 
-      const facultyIdMap = new Map<number, number>()
+      const facultyIdMap = new Map<string, string>()
       for (const faculty of sourceFaculty) {
         const newFaculty = await tx.faculty.create({
           data: {
             name: faculty.name,
             shortForm: faculty.shortForm,
             timetable: faculty.timetable as any,
-            sessionId: targetSessionIdInt
+            sessionId: targetSessionId
           }
         })
         facultyIdMap.set(faculty.id, newFaculty.id)
@@ -147,13 +146,13 @@ export async function POST(request: NextRequest) {
 
       // Copy halls
       const sourceHalls = await tx.hall.findMany({
-        where: { sessionId: sourceSessionIdInt },
+        where: { sessionId: sourceSessionId },
         include: {
           hallGroupMemberships: true
         }
       })
 
-      const hallIdMap = new Map<number, number>()
+      const hallIdMap = new Map<string, string>()
       for (const hall of sourceHalls) {
         const newHall = await tx.hall.create({
           data: {
@@ -162,7 +161,7 @@ export async function POST(request: NextRequest) {
             Building: hall.Building,
             shortForm: hall.shortForm,
             timetable: hall.timetable as any,
-            sessionId: targetSessionIdInt
+            sessionId: targetSessionId
           }
         })
         hallIdMap.set(hall.id, newHall.id)
@@ -170,14 +169,14 @@ export async function POST(request: NextRequest) {
 
       // Copy courses
       const sourceCourses = await tx.course.findMany({
-        where: { sessionId: sourceSessionIdInt },
+        where: { sessionId: sourceSessionId },
         include: {
           compulsoryFaculties: true,
           compulsoryHalls: true
         }
       })
 
-      const courseIdMap = new Map<number, number>()
+      const courseIdMap = new Map<string, string>()
       for (const course of sourceCourses) {
         const newCourse = await tx.course.create({
           data: {
@@ -187,7 +186,7 @@ export async function POST(request: NextRequest) {
             classDuration: course.classDuration,
             sessionsPerLecture: course.sessionsPerLecture,
             totalSessions: course.totalSessions,
-            sessionId: targetSessionIdInt
+            sessionId: targetSessionId
           }
         })
         courseIdMap.set(course.id, newCourse.id)
@@ -225,19 +224,19 @@ export async function POST(request: NextRequest) {
 
       // Copy student groups
       const sourceStudentGroups = await tx.studentGroup.findMany({
-        where: { sessionId: sourceSessionIdInt },
+        where: { sessionId: sourceSessionId },
         include: {
           studentMemberships: true
         }
       })
 
-      const studentGroupIdMap = new Map<number, number>()
+      const studentGroupIdMap = new Map<string, string>()
       for (const group of sourceStudentGroups) {
         const newGroup = await tx.studentGroup.create({
           data: {
             groupName: group.groupName,
             timetable: group.timetable as any,
-            sessionId: targetSessionIdInt
+            sessionId: targetSessionId
           }
         })
         studentGroupIdMap.set(group.id, newGroup.id)
@@ -258,19 +257,19 @@ export async function POST(request: NextRequest) {
 
       // Copy faculty groups
       const sourceFacultyGroups = await tx.facultyGroup.findMany({
-        where: { sessionId: sourceSessionIdInt },
+        where: { sessionId: sourceSessionId },
         include: {
           facultyMemberships: true
         }
       })
 
-      const facultyGroupIdMap = new Map<number, number>()
+      const facultyGroupIdMap = new Map<string, string>()
       for (const group of sourceFacultyGroups) {
         const newGroup = await tx.facultyGroup.create({
           data: {
             groupName: group.groupName,
             timetable: group.timetable as any,
-            sessionId: targetSessionIdInt
+            sessionId: targetSessionId
           }
         })
         facultyGroupIdMap.set(group.id, newGroup.id)
@@ -291,7 +290,7 @@ export async function POST(request: NextRequest) {
 
       // Copy hall groups
       const sourceHallGroups = await tx.hallGroup.findMany({
-        where: { sessionId: sourceSessionIdInt },
+        where: { sessionId: sourceSessionId },
         include: {
           hallMemberships: true
         }
@@ -302,7 +301,7 @@ export async function POST(request: NextRequest) {
           data: {
             groupName: group.groupName,
             timetable: group.timetable as any,
-            sessionId: targetSessionIdInt
+            sessionId: targetSessionId
           }
         })
 
@@ -341,15 +340,15 @@ export async function POST(request: NextRequest) {
 
     const response: ApiResponse = {
       success: true,
-      data: { 
-        message: `Successfully copied all data from session "${sourceSession.name}" to session "${targetSession.name}"` 
+      data: {
+        message: `Successfully copied all data from session "${sourceSession.name}" to session "${targetSession.name}"`
       }
     }
 
     return NextResponse.json(response)
   } catch (error: any) {
     console.error('Error copying session data:', error)
-    
+
     let errorMessage = 'Failed to copy session data'
     if (error.code === 'P2002') {
       errorMessage = 'Duplicate data conflict during copy operation'

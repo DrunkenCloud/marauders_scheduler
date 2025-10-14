@@ -21,12 +21,12 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
   const [error, setError] = useState<string | null>(null)
 
   // Enrollment state
-  const [selectedFaculty, setSelectedFaculty] = useState<number[]>([])
-  const [selectedHalls, setSelectedHalls] = useState<number[]>([])
-  const [selectedStudents, setSelectedStudents] = useState<number[]>([])
-  const [selectedStudentGroups, setSelectedStudentGroups] = useState<number[]>([])
-  const [selectedFacultyGroups, setSelectedFacultyGroups] = useState<number[]>([])
-  const [selectedHallGroups, setSelectedHallGroups] = useState<{id: number, requiredCount: number}[]>([])
+  const [selectedFaculty, setSelectedFaculty] = useState<string[]>([])
+  const [selectedHalls, setSelectedHalls] = useState<string[]>([])
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([])
+  const [selectedStudentGroups, setSelectedStudentGroups] = useState<string[]>([])
+  const [selectedFacultyGroups, setSelectedFacultyGroups] = useState<string[]>([])
+  const [selectedHallGroups, setSelectedHallGroups] = useState<{id: string, requiredCount: number}[]>([])
 
   // Reference data
   const [faculty, setFaculty] = useState<Faculty[]>([])
@@ -352,9 +352,9 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                 </label>
                 <select
                   multiple
-                  value={selectedFaculty.map(String)}
+                  value={selectedFaculty}
                   onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    const values = Array.from(e.target.selectedOptions, option => option.value)
                     setSelectedFaculty(values)
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
@@ -377,9 +377,9 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                 </label>
                 <select
                   multiple
-                  value={selectedFacultyGroups.map(String)}
+                  value={selectedFacultyGroups}
                   onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    const values = Array.from(e.target.selectedOptions, option => option.value)
                     setSelectedFacultyGroups(values)
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-24"
@@ -409,9 +409,9 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                 </label>
                 <select
                   multiple
-                  value={selectedHalls.map(String)}
+                  value={selectedHalls}
                   onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    const values = Array.from(e.target.selectedOptions, option => option.value)
                     setSelectedHalls(values)
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
@@ -492,7 +492,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                       <select
                         value=""
                         onChange={(e) => {
-                          const groupId = parseInt(e.target.value)
+                          const groupId = e.target.value
                           if (groupId && !selectedHallGroups.find(s => s.id === groupId)) {
                             setSelectedHallGroups([...selectedHallGroups, { id: groupId, requiredCount: 1 }])
                           }
@@ -529,9 +529,9 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                 </label>
                 <select
                   multiple
-                  value={selectedStudents.map(String)}
+                  value={selectedStudents}
                   onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    const values = Array.from(e.target.selectedOptions, option => option.value)
                     setSelectedStudents(values)
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"
@@ -554,9 +554,9 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                 </label>
                 <select
                   multiple
-                  value={selectedStudentGroups.map(String)}
+                  value={selectedStudentGroups}
                   onChange={(e) => {
-                    const values = Array.from(e.target.selectedOptions, option => parseInt(option.value))
+                    const values = Array.from(e.target.selectedOptions, option => option.value)
                     setSelectedStudentGroups(values)
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent h-32"

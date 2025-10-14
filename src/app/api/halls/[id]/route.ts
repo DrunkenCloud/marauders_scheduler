@@ -3,14 +3,13 @@ import { prisma } from '@/lib/prisma'
 import { ApiResponse } from '@/types'
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
     
-    if (isNaN(id)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -80,12 +79,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
     const body = await request.json()
     const { name, floor, building, shortForm, timetable } = body
     
-    if (isNaN(id)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {
@@ -197,14 +195,13 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: idParam } = await params
-    const id = parseInt(idParam)
+    const { id } = await params
     
-    if (isNaN(id)) {
+    if (!id || id.trim() === '') {
       const response: ApiResponse = {
         success: false,
         error: {

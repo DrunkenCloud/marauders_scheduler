@@ -59,7 +59,7 @@ export default function FacultyManagement() {
             </div>
           ) : viewMode === 'timetable' ? (
             <TimetableManagement
-              entityId={selectedFaculty?.id || 0}
+              entityId={selectedFaculty?.id || ''}
               entityType={EntityType.FACULTY}
               entityName={selectedFaculty?.name}
               onBack={handleBackFromTimetable}

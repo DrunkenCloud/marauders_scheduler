@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
     const hallGroups = await prisma.hallGroup.findMany({
       where: {
-        sessionId: parseInt(sessionId)
+        sessionId: sessionId
       },
       include: {
         hallMemberships: {
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     const existingGroup = await prisma.hallGroup.findFirst({
       where: {
         groupName: groupName,
-        sessionId: parseInt(sessionId)
+        sessionId: sessionId
       }
     })
 
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     const hallGroup = await prisma.hallGroup.create({
       data: {
         groupName,
-        sessionId: parseInt(sessionId),
+        sessionId: sessionId,
         timetable: emptyTimetable,
         startHour: startHour || 8,
         startMinute: startMinute || 10,
