@@ -145,12 +145,18 @@ export function StudentGroupManagement() {
   // Show timetable view if a group is selected for timetable viewing
   if (viewingTimetable) {
     return (
-      <TimetableManagement
-        entityId={viewingTimetable.id}
-        entityType={EntityType.STUDENT_GROUP}
-        entityName={viewingTimetable.groupName}
-        onBack={handleBackFromTimetable}
-      />
+      <div className="flex-1 p-6 bg-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white rounded-lg shadow-sm">
+            <TimetableManagement
+              entityId={viewingTimetable.id}
+              entityType={EntityType.STUDENT_GROUP}
+              entityName={viewingTimetable.groupName}
+              onBack={handleBackFromTimetable}
+            />
+          </div>
+        </div>
+      </div>
     )
   }
 

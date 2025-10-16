@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { EntityType, EntityTimetable } from '@/types'
 import { useSession } from '@/contexts/SessionContext'
 import TimetableEditor from './TimetableEditor'
+import { convertEntityTimetableToRaw, convertRawTimetableToEntityTimetable } from '@/lib/timetable'
 
 interface TimetableManagementProps {
   entityId: string
@@ -31,14 +32,14 @@ export default function TimetableManagement({
     const loadTimetable = async () => {
       setLoading(true)
       setError(null)
-      
+
       try {
         const response = await fetch(
           `/api/timetables?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`
         )
-        
+
         const data = await response.json()
-        
+
         if (data.success) {
           setTimetable(data.data.timetable)
           setEntityTiming(data.data.entityTiming)
@@ -69,7 +70,7 @@ export default function TimetableManagement({
           entityType,
           entityId,
           sessionId: currentSession.id,
-          timetable: updatedTimetable
+          timetable: convertEntityTimetableToRaw(updatedTimetable)
         })
       })
 
@@ -149,9 +150,9 @@ export default function TimetableManagement({
   }
 
   return (
-    <div className="p-6">
+    <>
       {/* Header */}
-      <div className="mb-6">
+      <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">
@@ -182,12 +183,12 @@ export default function TimetableManagement({
         <TimetableEditor
           entityId={entityId}
           entityType={entityType}
-          timetable={timetable}
+          timetable={convertRawTimetableToEntityTimetable(timetable, entityId, entityType)}
           entityTiming={entityTiming}
           onSave={handleSave}
           onCancel={onBack}
         />
       )}
-    </div>
+    </>
   )
 }

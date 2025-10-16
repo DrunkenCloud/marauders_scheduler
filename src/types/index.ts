@@ -177,14 +177,12 @@ export interface Course {
       id: string
       groupName: string
     }
-    requiredCount: number
   }>
   compulsoryHallGroups?: Array<{
     hallGroup: {
       id: string
       groupName: string
     }
-    requiredCount: number
   }>
 }
 

@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
     console.log(`Scheduling compilation complete for ${courseIds.length} courses in session ${sessionId}`)
 
     // Run the scheduling algorithm
-    const schedulingResult = scheduleCourses(compiled)
+    const schedulingResult = scheduleCourses(compiled);
+    console.log(JSON.stringify(schedulingResult, null, 2));
 
     const response: ApiResponse = {
       success: schedulingResult.success,

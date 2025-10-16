@@ -85,8 +85,7 @@ export async function GET(request: NextRequest) {
                   id: true,
                   groupName: true
                 }
-              },
-              requiredCount: true
+              }
             }
           },
           studentEnrollments: {
@@ -196,7 +195,6 @@ export async function POST(request: NextRequest) {
       Wednesday: [],
       Thursday: [],
       Friday: [],
-      Saturday: [],
       Sunday: []
     }
 
@@ -237,9 +235,8 @@ export async function POST(request: NextRequest) {
         },
         // Create hall group connections
         compulsoryHallGroups: {
-          create: (hallGroups.length > 0 ? hallGroups : hallGroupIds.map((id: string) => ({ id, requiredCount: 1 }))).map((group: any) => ({
-            hallGroupId: group.id || group,
-            requiredCount: group.requiredCount || 1
+          create: (hallGroups.length > 0 ? hallGroups : hallGroupIds.map((id: string) => ({ id }))).map((group: any) => ({
+            hallGroupId: group.id || group
           }))
         }
       },
@@ -289,8 +286,7 @@ export async function POST(request: NextRequest) {
                 id: true,
                 groupName: true
               }
-            },
-            requiredCount: true
+            }
           }
         },
         studentEnrollments: {

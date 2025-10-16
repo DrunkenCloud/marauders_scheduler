@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/prisma'
-import { 
-  CompiledCourseData, 
-  EntityWorkload, 
-  EntityData, 
-  CompiledSchedulingData, 
-  SlotFragment 
+import {
+  CompiledCourseData,
+  EntityWorkload,
+  EntityData,
+  CompiledSchedulingData,
+  SlotFragment
 } from '@/types'
 
 // Helper function to calculate free minutes from timetable
@@ -59,7 +59,7 @@ function calculateCurrentWorkload(timetable: any): { [day: string]: number } {
 }
 
 // Helper function to calculate total scheduled duration for an entity across all courses (keep in minutes)
-function calculateTotalScheduledDuration(entityId: string, courses: CompiledCourseData[], entityType: 'student' | 'faculty' | 'hall' | 'studentGroup' | 'facultyGroup'): number {
+function calculateTotalScheduledDuration(entityId: string, courses: CompiledCourseData[], entityType: 'student' | 'faculty' | 'hall' | 'studentGroup' | 'facultyGroup' | 'hallGroup'): number {
   let totalDuration = 0
 
   for (const course of courses) {
@@ -80,6 +80,9 @@ function calculateTotalScheduledDuration(entityId: string, courses: CompiledCour
         break
       case 'facultyGroup':
         isInvolved = course.facultyGroupIds.includes(entityId)
+        break
+      case 'hallGroup':
+        isInvolved = course.hallGroupIds.includes(entityId)
         break
     }
 
@@ -182,14 +185,15 @@ export async function compileSchedulingData(sessionId: string, courseIds: string
     for (const h of course.compulsoryHalls) {
       hallIdSet.add(h.id)
     }
-    // From hall groups (for now, expand to halls and ignore the group entity)
+    // From hall groups - include both the group and expand to individual halls
     for (const chg of course.compulsoryHallGroups) {
       if (chg.hallGroup) {
         hallGroupIdSet.add(chg.hallGroup.id)
-      }
-      const memberships = chg.hallGroup?.hallMemberships ?? []
-      for (const membership of memberships) {
-        if (membership.hall) hallIdSet.add(membership.hall.id)
+        // Also expand to individual halls for scheduling
+        const memberships = chg.hallGroup?.hallMemberships ?? []
+        for (const membership of memberships) {
+          if (membership.hall) hallIdSet.add(membership.hall.id)
+        }
       }
     }
 
@@ -217,6 +221,7 @@ export async function compileSchedulingData(sessionId: string, courseIds: string
   const allHallIds = new Set<string>()
   const allStudentGroupIds = new Set<string>()
   const allFacultyGroupIds = new Set<string>()
+  const allHallGroupIds = new Set<string>()
 
   for (const course of compiled) {
     course.studentIds.forEach(id => allStudentIds.add(id))
@@ -224,10 +229,11 @@ export async function compileSchedulingData(sessionId: string, courseIds: string
     course.hallIds.forEach(id => allHallIds.add(id))
     course.studentGroupIds.forEach(id => allStudentGroupIds.add(id))
     course.facultyGroupIds.forEach(id => allFacultyGroupIds.add(id))
+    course.hallGroupIds.forEach(id => allHallGroupIds.add(id))
   }
 
   // Fetch entity data for workload calculations
-  const [students, faculties, halls, studentGroups, facultyGroups] = await Promise.all([
+  const [students, faculties, halls, studentGroups, facultyGroups, hallGroups] = await Promise.all([
     prisma.student.findMany({
       where: { id: { in: Array.from(allStudentIds) } }
     }),
@@ -242,6 +248,9 @@ export async function compileSchedulingData(sessionId: string, courseIds: string
     }),
     prisma.facultyGroup.findMany({
       where: { id: { in: Array.from(allFacultyGroupIds) } }
+    }),
+    prisma.hallGroup.findMany({
+      where: { id: { in: Array.from(allHallGroupIds) } }
     })
   ])
 
@@ -403,13 +412,42 @@ export async function compileSchedulingData(sessionId: string, courseIds: string
     }
   }
 
+  // Add hall groups
+  for (const group of hallGroups) {
+    const { totalFreeMinutes, dailyFreeMinutes } = calculateFreeMinutes(
+      group.timetable, group.startHour, group.startMinute, group.endHour, group.endMinute
+    )
+    const currentWorkload = calculateCurrentWorkload(group.timetable)
+    const totalScheduledDuration = calculateTotalScheduledDuration(group.id, compiled, 'hallGroup')
+
+    const dailyThresholds: { [day: string]: number } = {}
+    for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
+      const dayPercentage = totalFreeMinutes > 0 ? dailyFreeMinutes[day] / totalFreeMinutes : 0.2
+      dailyThresholds[day] = totalScheduledDuration * dayPercentage
+    }
+
+    allEntities[group.id] = {
+      id: group.id,
+      timetable: group.timetable,
+      startHour: group.startHour,
+      startMinute: group.startMinute,
+      endHour: group.endHour,
+      endMinute: group.endMinute,
+      workload: {
+        totalFreeMinutes,
+        dailyFreeMinutes,
+        dailyThresholds,
+        currentWorkload,
+        totalScheduledDuration
+      }
+    }
+  }
+
   const res = {
     sessionId,
     courses: compiled,
     allEntities
   }
-
-  console.log(JSON.stringify(res, null, 2));
 
   return res;
 }
@@ -435,16 +473,19 @@ function isEntityFree(
 
   // Check if slot is within working hours
   if (slotStartMinutes < workingStartMinutes || slotEndMinutes > workingEndMinutes) {
+    console.log("here");
     return false
   }
 
   // Check for conflicts with existing slots
   for (const existingSlot of daySchedule) {
+    console.log(JSON.stringify(existingSlot));
     const existingStartMinutes = existingSlot.startHour * 60 + existingSlot.startMinute
     const existingEndMinutes = existingStartMinutes + existingSlot.duration
 
     // Check for overlap
     if (!(slotEndMinutes <= existingStartMinutes || slotStartMinutes >= existingEndMinutes)) {
+      console.log(slotStartMinutes, slotEndMinutes, existingStartMinutes, existingEndMinutes);
       return false // Overlap found
     }
   }
@@ -545,6 +586,7 @@ function areAllEntitiesAvailable(
       entity.endHour,
       entity.endMinute
     )) {
+      console.log(entityId);
       return false
     }
 
@@ -558,8 +600,8 @@ function areAllEntitiesAvailable(
 }
 
 // Main recursive scheduling function
-export function scheduleCourses(data: CompiledSchedulingData): { success: boolean, message: string, scheduledSlots?: SlotFragment[] } {
-  const scheduledSlots: SlotFragment[] = []
+export function scheduleCourses(data: CompiledSchedulingData): { success: boolean, message: string, scheduledSlots?: Array<SlotFragment & { day: string }> } {
+  const scheduledSlots: Array<SlotFragment & { day: string }> = []
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
 
   // Base case: check if all courses are fully scheduled
@@ -607,9 +649,9 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
       )
 
       if (availableSlot) {
-        // Create the slot fragment
-        const newSlot: SlotFragment = {
-          type: 'course',
+        // Create the slot fragment with day information
+        const newSlot = {
+          type: 'course' as const,
           startHour: availableSlot.startHour,
           startMinute: availableSlot.startMinute,
           duration: sessionDuration,
@@ -620,7 +662,8 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
           hallIds: course.hallIds,
           studentGroupIds: course.studentGroupIds,
           facultyGroupIds: course.facultyGroupIds,
-          hallGroupIds: course.hallGroupIds
+          hallGroupIds: course.hallGroupIds,
+          day: day
         }
 
         scheduledSlots.push(newSlot)
@@ -656,5 +699,3 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
     scheduledSlots
   }
 }
-
-

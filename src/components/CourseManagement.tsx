@@ -5,7 +5,7 @@ import { Course, ViewMode, EntityType, EntityTimetable } from '@/types'
 import CourseList from './CourseList'
 import CourseForm from './CourseForm'
 import TimetableEditor from './TimetableEditor'
-import { convertFromLegacyFormat } from '@/lib/timetable'
+import { convertRawTimetableToEntityTimetable, convertEntityTimetableToRaw } from '@/lib/timetable'
 
 type CourseViewMode = ViewMode | 'timetable'
 
@@ -51,7 +51,7 @@ export default function CourseManagement() {
           entityType: 'course',
           entityId: selectedCourse.id,
           sessionId: selectedCourse.session.id,
-          timetable
+          timetable: convertEntityTimetableToRaw(timetable)
         })
       })
 
@@ -105,7 +105,12 @@ export default function CourseManagement() {
               <TimetableEditor
                 entityId={selectedCourse.id}
                 entityType={EntityType.COURSE}
-                timetable={selectedCourse.timetable ? convertFromLegacyFormat(selectedCourse.timetable, selectedCourse.id, EntityType.COURSE) : undefined}
+                timetable={(() => {
+                  console.log('Raw course timetable:', selectedCourse.timetable)
+                  const converted = selectedCourse.timetable ? convertRawTimetableToEntityTimetable(selectedCourse.timetable, selectedCourse.id, EntityType.COURSE) : undefined
+                  console.log('Converted timetable:', converted)
+                  return converted
+                })()}
                 entityTiming={{
                   startHour: 8,
                   startMinute: 0,

@@ -26,7 +26,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [selectedStudentGroups, setSelectedStudentGroups] = useState<string[]>([])
   const [selectedFacultyGroups, setSelectedFacultyGroups] = useState<string[]>([])
-  const [selectedHallGroups, setSelectedHallGroups] = useState<{id: string, requiredCount: number}[]>([])
+  const [selectedHallGroups, setSelectedHallGroups] = useState<string[]>([])
 
   // Reference data
   const [faculty, setFaculty] = useState<Faculty[]>([])
@@ -94,7 +94,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
       setSelectedStudents(course.studentEnrollments?.map(e => e.student.id) || [])
       setSelectedStudentGroups(course.studentGroupEnrollments?.map(e => e.studentGroup.id) || [])
       setSelectedFacultyGroups(course.compulsoryFacultyGroups?.map(g => g.facultyGroup.id) || [])
-      setSelectedHallGroups(course.compulsoryHallGroups?.map(g => ({id: g.hallGroup.id, requiredCount: g.requiredCount})) || [])
+      setSelectedHallGroups(course.compulsoryHallGroups?.map(g => g.hallGroup.id) || [])
     } else {
       setName('')
       setCode('')
@@ -165,7 +165,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
         studentIds: selectedStudents,
         studentGroupIds: selectedStudentGroups,
         facultyGroupIds: selectedFacultyGroups,
-        hallGroups: selectedHallGroups
+        hallGroupIds: selectedHallGroups
       }
 
       if (!isEditing) {
@@ -177,7 +177,6 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
           Wednesday: [],
           Thursday: [],
           Friday: [],
-          Saturday: [],
           Sunday: []
         }
       }
@@ -447,39 +446,23 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                       <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
                         <h5 className="text-sm font-medium text-purple-900 mb-2">Selected Hall Groups:</h5>
                         <div className="space-y-2">
-                          {selectedHallGroups.map((selection, index) => {
-                            const group = hallGroups.find(g => g.id === selection.id)
+                          {selectedHallGroups.map((groupId, index) => {
+                            const group = hallGroups.find(g => g.id === groupId)
                             return (
-                              <div key={selection.id} className="flex items-center gap-3 bg-white p-2 rounded border">
+                              <div key={groupId} className="flex items-center gap-3 bg-white p-2 rounded border">
                                 <span className="flex-1 text-sm font-medium">
                                   {group?.groupName} ({group?._count.hallMemberships} halls)
                                 </span>
-                                <div className="flex items-center gap-2">
-                                  <label className="text-xs text-gray-600">Required:</label>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max={group?._count.hallMemberships || 1}
-                                    value={selection.requiredCount}
-                                    onChange={(e) => {
-                                      const newCount = parseInt(e.target.value) || 1
-                                      const newSelections = [...selectedHallGroups]
-                                      newSelections[index] = { ...selection, requiredCount: newCount }
-                                      setSelectedHallGroups(newSelections)
-                                    }}
-                                    className="w-16 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newSelections = selectedHallGroups.filter((_, i) => i !== index)
-                                      setSelectedHallGroups(newSelections)
-                                    }}
-                                    className="text-red-600 hover:text-red-800 text-xs px-2 py-1 rounded hover:bg-red-50"
-                                  >
-                                    Remove
-                                  </button>
-                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newSelections = selectedHallGroups.filter((_, i) => i !== index)
+                                    setSelectedHallGroups(newSelections)
+                                  }}
+                                  className="text-red-600 hover:text-red-800 text-xs px-2 py-1 rounded hover:bg-red-50"
+                                >
+                                  Remove
+                                </button>
                               </div>
                             )
                           })}
@@ -493,8 +476,8 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                         value=""
                         onChange={(e) => {
                           const groupId = e.target.value
-                          if (groupId && !selectedHallGroups.find(s => s.id === groupId)) {
-                            setSelectedHallGroups([...selectedHallGroups, { id: groupId, requiredCount: 1 }])
+                          if (groupId && !selectedHallGroups.includes(groupId)) {
+                            setSelectedHallGroups([...selectedHallGroups, groupId])
                           }
                           e.target.value = ""
                         }}
@@ -502,7 +485,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                       >
                         <option value="">+ Add Hall Group</option>
                         {hallGroups
-                          .filter(group => !selectedHallGroups.find(s => s.id === group.id))
+                          .filter(group => !selectedHallGroups.includes(group.id))
                           .map(group => (
                             <option key={group.id} value={group.id}>
                               {group.groupName} ({group._count.hallMemberships} halls available)
@@ -517,7 +500,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                 <p className="text-xs text-gray-500 mt-1">
                   {hallGroups.length === 0 
                     ? 'No hall groups available. Create hall groups first to assign them to courses.'
-                    : 'Select hall groups and specify how many halls are required from each group'
+                    : 'Select hall groups to assign to this course'
                   }
                 </p>
               </div>
@@ -664,7 +647,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
                       key={group.hallGroup.id}
                       className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800"
                     >
-                      {group.hallGroup.groupName} (Req: {group.requiredCount})
+                      {group.hallGroup.groupName}
                     </span>
                   ))}
                 </div>

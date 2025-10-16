@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ApiResponse, EntityType } from '@/types'
-import { convertFromLegacyFormat, convertToLegacyFormat } from '@/lib/timetable'
 
 export async function GET(request: NextRequest) {
   try {
@@ -92,12 +91,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(response, { status: 404 })
     }
 
-    // Convert legacy timetable format to new format
-    const timetable = convertFromLegacyFormat(
-      entity.timetable || {},
-      entityId,
-      entityType
-    )
+    const timetable = entity.timetable
 
     // Add entity timing information
     const entityTiming = entityType === EntityType.COURSE ? null : {
@@ -149,11 +143,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json(response, { status: 400 })
     }
 
-
-
-    // Convert new timetable format to legacy format for database storage
-    const legacyTimetable = convertToLegacyFormat(timetable)
-
     let updatedEntity: any = null
 
     // Update entity based on type
@@ -161,49 +150,49 @@ export async function PUT(request: NextRequest) {
       case EntityType.STUDENT:
         updatedEntity = await prisma.student.update({
           where: { id: entityId },
-          data: { timetable: legacyTimetable },
+          data: { timetable: timetable },
           select: { id: true, timetable: true }
         })
         break
       case EntityType.FACULTY:
         updatedEntity = await prisma.faculty.update({
           where: { id: entityId },
-          data: { timetable: legacyTimetable },
+          data: { timetable: timetable },
           select: { id: true, timetable: true }
         })
         break
       case EntityType.HALL:
         updatedEntity = await prisma.hall.update({
           where: { id: entityId },
-          data: { timetable: legacyTimetable },
+          data: { timetable: timetable },
           select: { id: true, timetable: true }
         })
         break
       case EntityType.COURSE:
         updatedEntity = await prisma.course.update({
           where: { id: entityId },
-          data: { timetable: legacyTimetable },
+          data: { timetable: timetable },
           select: { id: true, timetable: true }
         })
         break
       case EntityType.STUDENT_GROUP:
         updatedEntity = await prisma.studentGroup.update({
           where: { id: entityId },
-          data: { timetable: legacyTimetable },
+          data: { timetable: timetable },
           select: { id: true, timetable: true }
         })
         break
       case EntityType.FACULTY_GROUP:
         updatedEntity = await prisma.facultyGroup.update({
           where: { id: entityId },
-          data: { timetable: legacyTimetable },
+          data: { timetable: timetable },
           select: { id: true, timetable: true }
         })
         break
       case EntityType.HALL_GROUP:
         updatedEntity = await prisma.hallGroup.update({
           where: { id: entityId },
-          data: { timetable: legacyTimetable },
+          data: { timetable: timetable },
           select: { id: true, timetable: true }
         })
         break
@@ -220,11 +209,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Convert back to new format for response
-    const updatedTimetable = convertFromLegacyFormat(
-      updatedEntity.timetable || {},
-      entityId,
-      entityType as EntityType
-    )
+    const updatedTimetable = updatedEntity.timetable;
 
     const response: ApiResponse = {
       success: true,

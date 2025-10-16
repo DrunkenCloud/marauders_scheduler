@@ -39,7 +39,7 @@ export default function TimetableEditor({
   const [editingSlot, setEditingSlot] = useState<TimetableSlot>({
     type: 'course',
     startHour: 8,
-    startMinute: 0,
+    startMinute: 10,
     duration: 50,
     courseId: undefined,
     courseCode: '',
@@ -62,6 +62,7 @@ export default function TimetableEditor({
   // Initialize timetable
   useEffect(() => {
     if (initialTimetable) {
+      console.log('Setting timetable from initialTimetable:', JSON.stringify(initialTimetable, null, 2))
       setTimetable(initialTimetable)
     } else if (currentSession && entityTiming) {
       // Create empty timetable
@@ -77,7 +78,10 @@ export default function TimetableEditor({
         emptyTimetable.schedule[day] = []
       })
 
+      console.log('Setting empty timetable:', JSON.stringify(emptyTimetable, null, 2))
       setTimetable(emptyTimetable)
+    } else {
+      console.log('No timetable set - missing initialTimetable, currentSession, or entityTiming')
     }
   }, [initialTimetable, entityId, entityType, currentSession, entityTiming])
 
@@ -155,8 +159,8 @@ export default function TimetableEditor({
     // Get all entity IDs that would be affected by this slot
     const allEntityIds = [
       ...(slot.facultyIds || []).map(id => ({ type: 'faculty', id })),
-      ...(slot.hallIds || []).map(id => ({ type: 'hall', id })),
       ...(slot.facultyGroupIds || []).map(id => ({ type: 'facultyGroup', id })),
+      ...(slot.hallIds || []).map(id => ({ type: 'hall', id })),
       ...(slot.hallGroupIds || []).map(id => ({ type: 'hallGroup', id })),
       ...(slot.studentIds || []).map(id => ({ type: 'student', id })),
       ...(slot.studentGroupIds || []).map(id => ({ type: 'studentGroup', id }))
@@ -170,7 +174,7 @@ export default function TimetableEditor({
           const data = await response.json()
           if (data.success && data.data.timetable) {
             const entityTimetable = data.data.timetable
-            const daySlots = entityTimetable.schedule[day] || []
+            const daySlots = entityTimetable[day] || []
 
             // Check each existing slot for conflicts
             for (let i = 0; i < daySlots.length; i++) {
@@ -403,6 +407,7 @@ export default function TimetableEditor({
 
     // Populate resource IDs based on context
     let slotToAdd = { ...editingSlot }
+    console.log(JSON.stringify(editingSlot, null, 2));
 
     // For course slots, automatically populate resource IDs from the course
     if (editingSlot.type === 'course' && editingSlot.courseId) {
@@ -499,13 +504,15 @@ export default function TimetableEditor({
     }
 
     // Update all related entity timetables
+    console.log(JSON.stringify(slotToAdd, null, 2));
+    console.log(JSON.stringify(newTimetable, null, 2));
     await updateRelatedTimetables(slotToAdd, selectedDay, 'add')
 
     // Reset form
     setEditingSlot({
       type: 'course',
       startHour: 8,
-      startMinute: 0,
+      startMinute: 10,
       duration: 50,
       courseId: undefined,
       courseCode: '',
@@ -648,6 +655,7 @@ export default function TimetableEditor({
       ...(slot.studentIds || []).map(id => ({ type: 'student', id })),
       ...(slot.studentGroupIds || []).map(id => ({ type: 'studentGroup', id }))
     ]
+    console.log(JSON.stringify(slot, null, 2));
 
     // Helper function to update a single entity's timetable
     const updateEntityTimetable = async (entityType: string, entityId: string) => {
@@ -665,11 +673,11 @@ export default function TimetableEditor({
             }
 
             // Initialize day if needed
-            if (!entityTimetable.schedule[day]) {
-              entityTimetable.schedule[day] = []
+            if (!entityTimetable[day]) {
+              entityTimetable[day] = []
             }
 
-            const daySlots = [...entityTimetable.schedule[day]]
+            const daySlots = [...entityTimetable[day]]
 
             if (action === 'add') {
               // Add the slot
@@ -697,7 +705,7 @@ export default function TimetableEditor({
               }
             }
 
-            entityTimetable.schedule[day] = daySlots
+            entityTimetable[day] = daySlots
 
             // Save updated timetable
             await fetch('/api/timetables', {
@@ -961,7 +969,7 @@ export default function TimetableEditor({
   const timeMarkers = generateTimeMarkers()
 
   return (
-    <div className="flex h-screen">
+    <div className="flex" style={{ height: 'calc(100vh - 200px)' }}>
       {/* Timeline View - Left Side */}
       <div className="flex-1 p-6 overflow-auto">
         {/* Header */}

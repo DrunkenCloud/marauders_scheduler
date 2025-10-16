@@ -59,7 +59,6 @@ export async function GET(
                 groupName: true
               }
             },
-            requiredCount: true
           }
         },
         studentEnrollments: {
@@ -313,14 +312,13 @@ export async function PUT(
         where: { courseId: id }
       })
 
-      const groupsToCreate = hallGroups || hallGroupIds?.map((id: string) => ({ id, requiredCount: 1 })) || []
+      const groupsToCreate = hallGroups || hallGroupIds?.map((id: string) => ({ id })) || []
       
       if (groupsToCreate.length > 0) {
         hallGroupUpdates = {
           compulsoryHallGroups: {
             create: groupsToCreate.map((group: any) => ({
               hallGroupId: group.id || group,
-              requiredCount: group.requiredCount || 1
             }))
           }
         }
@@ -372,7 +370,6 @@ export async function PUT(
                 groupName: true
               }
             },
-            requiredCount: true
           }
         },
         studentEnrollments: {

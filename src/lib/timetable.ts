@@ -67,138 +67,52 @@ export function initializeEmptyTimetable(
 }
 
 /**
- * Convert slot-based format to legacy format for database storage
+ * Convert raw timetable data from database to EntityTimetable format
  */
-export function convertToLegacyFormat(timetable: EntityTimetable): Record<string, any[]> {
-  const legacy: Record<string, any[]> = {}
-
-  DAYS_OF_WEEK.forEach(day => {
-    const daySlots = timetable.schedule[day] || []
-    legacy[day] = daySlots.map(slot => {
-      return [
-        slot.type,
-        slot.startHour,
-        slot.startMinute,
-        slot.duration,
-        slot.courseId || null,
-        slot.courseCode || '',
-        slot.blockerReason || '',
-        slot.hallIds || [],
-        slot.facultyIds || [],
-        slot.hallGroupIds || [],
-        slot.facultyGroupIds || [],
-        slot.studentIds || [],
-        slot.studentGroupIds || []
-      ]
-    })
-  })
-
-  return legacy
-}
-
-/**
- * Convert legacy format from database to slot-based format
- */
-export function convertFromLegacyFormat(
-  legacyTimetable: any,
+export function convertRawTimetableToEntityTimetable(
+  rawTimetable: any,
   entityId: string,
   entityType: EntityType
 ): EntityTimetable {
   const schedule: DaySchedule = {}
 
+  // Initialize all days
   DAYS_OF_WEEK.forEach(day => {
-    const dayData = legacyTimetable[day] || []
-    schedule[day] = dayData
-      .map((slot: any) => {
-        // Handle object format (direct TimetableSlot objects)
-        if (slot && typeof slot === 'object' && !Array.isArray(slot) && 'type' in slot) {
-          const timetableSlot: TimetableSlot = {
-            type: slot.type || 'course',
-            startHour: slot.startHour || 8,
-            startMinute: slot.startMinute || 0,
-            duration: slot.duration || DEFAULT_SLOT_DURATION,
-            courseId: slot.courseId || undefined,
-            courseCode: slot.courseCode || undefined,
-            blockerReason: slot.blockerReason || undefined,
-            hallIds: Array.isArray(slot.hallIds) ? slot.hallIds : [],
-            facultyIds: Array.isArray(slot.facultyIds) ? slot.facultyIds : [],
-            hallGroupIds: Array.isArray(slot.hallGroupIds) ? slot.hallGroupIds : [],
-            facultyGroupIds: Array.isArray(slot.facultyGroupIds) ? slot.facultyGroupIds : [],
-            studentIds: Array.isArray(slot.studentIds) ? slot.studentIds : [],
-            studentGroupIds: Array.isArray(slot.studentGroupIds) ? slot.studentGroupIds : []
-          }
-          return timetableSlot
-        }
-
-        // Handle array format (legacy)
-        if (Array.isArray(slot)) {
-          // Skip old free slots [0]
-          if (slot.length === 1 && slot[0] === 0) {
-            return null
-          }
-
-          // Handle current array format (13 elements)
-          if (slot.length >= 13) {
-            const timetableSlot: TimetableSlot = {
-              type: slot[0] || 'course',
-              startHour: slot[1] || 8,
-              startMinute: slot[2] || 0,
-              duration: slot[3] || DEFAULT_SLOT_DURATION,
-              courseId: slot[4] || undefined,
-              courseCode: slot[5] || undefined,
-              blockerReason: slot[6] || undefined,
-              hallIds: Array.isArray(slot[7]) ? slot[7] : [],
-              facultyIds: Array.isArray(slot[8]) ? slot[8] : [],
-              hallGroupIds: Array.isArray(slot[9]) ? slot[9] : [],
-              facultyGroupIds: Array.isArray(slot[10]) ? slot[10] : [],
-              studentIds: Array.isArray(slot[11]) ? slot[11] : [],
-              studentGroupIds: Array.isArray(slot[12]) ? slot[12] : []
-            }
-            return timetableSlot
-          }
-
-          // Handle older array format (7+ elements)
-          if (slot.length >= 7) {
-            const timetableSlot: TimetableSlot = {
-              type: slot[0] || 'course',
-              startHour: slot[1] || 8,
-              startMinute: slot[2] || 0,
-              duration: slot[3] || DEFAULT_SLOT_DURATION,
-              courseId: slot[4] || undefined,
-              courseCode: slot[5] || undefined,
-              blockerReason: slot[6] || undefined,
-              hallIds: Array.isArray(slot[7]) ? slot[7] : [],
-              facultyIds: Array.isArray(slot[8]) ? slot[8] : [],
-              hallGroupIds: Array.isArray(slot[9]) ? slot[9] : [],
-              facultyGroupIds: Array.isArray(slot[10]) ? slot[10] : [],
-              studentIds: Array.isArray(slot[11]) ? slot[11] : [],
-              studentGroupIds: Array.isArray(slot[12]) ? slot[12] : []
-            }
-            return timetableSlot
-          }
-
-          // Handle very old format (4+ elements)
-          if (slot.length >= 4) {
-            const timetableSlot: TimetableSlot = {
-              type: 'course',
-              startHour: typeof slot[1] === 'string' ? parseInt(slot[1].split(':')[0]) : (slot[1] || 8),
-              startMinute: typeof slot[1] === 'string' ? parseInt(slot[1].split(':')[1]) : (slot[2] || 0),
-              duration: typeof slot[1] === 'string' ? (slot[2] || DEFAULT_SLOT_DURATION) : (slot[3] || DEFAULT_SLOT_DURATION),
-              courseCode: typeof slot[1] === 'string' ? (slot[3] || undefined) : (slot[4] || undefined),
-              hallIds: Array.isArray(slot[5]) ? slot[5] : (slot[5] ? [slot[5]] : []),
-              facultyIds: Array.isArray(slot[6]) ? slot[6] : (slot[6] ? [slot[6]] : []),
-              hallGroupIds: [],
-              facultyGroupIds: [],
-              studentIds: [],
-              studentGroupIds: []
-            }
-            return timetableSlot
-          }
-        }
-        return null
-      })
-      .filter((slot: TimetableSlot | null) => slot !== null) as TimetableSlot[]
+    schedule[day] = []
   })
+
+  // If rawTimetable exists and has data, convert it
+  if (rawTimetable && typeof rawTimetable === 'object') {
+    DAYS_OF_WEEK.forEach(day => {
+      const dayData = rawTimetable[day]
+      if (Array.isArray(dayData)) {
+        schedule[day] = dayData
+          .map((slot: any) => {
+            // Handle object format (TimetableSlot objects)
+            if (slot && typeof slot === 'object' && 'type' in slot) {
+              return {
+                type: slot.type || 'course',
+                startHour: slot.startHour || 8,
+                startMinute: slot.startMinute || 0,
+                duration: slot.duration || DEFAULT_SLOT_DURATION,
+                courseId: slot.courseId || undefined,
+                courseCode: slot.courseCode || undefined,
+                blockerReason: slot.blockerReason || undefined,
+                hallIds: Array.isArray(slot.hallIds) ? slot.hallIds : [],
+                facultyIds: Array.isArray(slot.facultyIds) ? slot.facultyIds : [],
+                hallGroupIds: Array.isArray(slot.hallGroupIds) ? slot.hallGroupIds : [],
+                facultyGroupIds: Array.isArray(slot.facultyGroupIds) ? slot.facultyGroupIds : [],
+                studentIds: Array.isArray(slot.studentIds) ? slot.studentIds : [],
+                studentGroupIds: Array.isArray(slot.studentGroupIds) ? slot.studentGroupIds : []
+              } as TimetableSlot
+            }
+
+            return null
+          })
+          .filter((slot: TimetableSlot | null) => slot !== null) as TimetableSlot[]
+      }
+    })
+  }
 
   return {
     entityId,
@@ -206,6 +120,34 @@ export function convertFromLegacyFormat(
     schedule,
     isComplete: entityType === EntityType.STUDENT
   }
+}
+
+/**
+ * Convert EntityTimetable back to raw format for database storage
+ */
+export function convertEntityTimetableToRaw(timetable: EntityTimetable): any {
+  const raw: any = {}
+
+  DAYS_OF_WEEK.forEach(day => {
+    const daySlots = timetable.schedule[day] || []
+    raw[day] = daySlots.map(slot => ({
+      type: slot.type,
+      startHour: slot.startHour,
+      startMinute: slot.startMinute,
+      duration: slot.duration,
+      courseId: slot.courseId,
+      courseCode: slot.courseCode,
+      blockerReason: slot.blockerReason,
+      hallIds: slot.hallIds || [],
+      facultyIds: slot.facultyIds || [],
+      hallGroupIds: slot.hallGroupIds || [],
+      facultyGroupIds: slot.facultyGroupIds || [],
+      studentIds: slot.studentIds || [],
+      studentGroupIds: slot.studentGroupIds || []
+    }))
+  })
+
+  return raw
 }
 
 /**

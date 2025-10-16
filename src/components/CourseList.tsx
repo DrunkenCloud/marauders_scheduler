@@ -367,7 +367,7 @@ export default function CourseList({ onCourseSelect, onTimetableView, onCreateNe
                                       key={group.hallGroup.id}
                                       className="text-xs text-gray-600"
                                     >
-                                      🏢 {group.hallGroup.groupName} (req: {group.requiredCount})
+                                      🏢 {group.hallGroup.groupName}
                                     </span>
                                   ))}
                                   {course.compulsoryHallGroups.length > 2 && (
