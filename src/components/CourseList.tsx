@@ -4,13 +4,62 @@ import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
 import { ApiResponse, Course } from '@/types'
 
+// Separate component to avoid hydration issues
+function SchedulingProgress({ scheduledCount, totalSessions }: { scheduledCount: number; totalSessions: number }) {
+  const [mounted, setMounted] = useState(false)
+  
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    // Return a placeholder during SSR to match initial render
+    return (
+      <div className="mt-1">
+        <div className="flex items-center gap-2">
+          <div className="flex-1 bg-gray-200 rounded-full h-2">
+            <div className="h-2 rounded-full bg-gray-300" style={{ width: '0%' }}></div>
+          </div>
+          <span className="text-xs text-gray-600 min-w-0">
+            {scheduledCount}/{totalSessions}
+          </span>
+        </div>
+      </div>
+    )
+  }
+
+  const progressPercentage = Math.min(100, (scheduledCount / totalSessions) * 100)
+  const progressColor = scheduledCount >= totalSessions 
+    ? 'bg-green-500' 
+    : scheduledCount > 0 
+      ? 'bg-yellow-500' 
+      : 'bg-gray-300'
+
+  return (
+    <div className="mt-1">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 bg-gray-200 rounded-full h-2">
+          <div 
+            className={`h-2 rounded-full ${progressColor}`}
+            style={{ width: `${progressPercentage}%` }}
+          ></div>
+        </div>
+        <span className="text-xs text-gray-600 min-w-0">
+          {scheduledCount}/{totalSessions}
+        </span>
+      </div>
+    </div>
+  )
+}
+
 interface CourseListProps {
   onCourseSelect: (course: Course) => void
+  onTimetableView: (course: Course) => void
   onCreateNew: () => void
   refreshTrigger?: number
 }
 
-export default function CourseList({ onCourseSelect, onCreateNew, refreshTrigger }: CourseListProps) {
+export default function CourseList({ onCourseSelect, onTimetableView, onCreateNew, refreshTrigger }: CourseListProps) {
   const { currentSession } = useSession()
   const [courses, setCourses] = useState<Course[]>([])
   const [loading, setLoading] = useState(true)
@@ -205,6 +254,10 @@ export default function CourseList({ onCourseSelect, onCreateNew, refreshTrigger
                             <div className="text-xs text-gray-500">
                               {course.sessionsPerLecture} per lecture, {course.totalSessions} total/week
                             </div>
+                            <SchedulingProgress 
+                              scheduledCount={course.scheduledCount || 0}
+                              totalSessions={course.totalSessions}
+                            />
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -385,6 +438,13 @@ export default function CourseList({ onCourseSelect, onCreateNew, refreshTrigger
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => onTimetableView(course)}
+                              className="text-green-600 hover:text-green-900 transition-colors"
+                              title="View course timetable"
+                            >
+                              📅 Timetable
+                            </button>
                             <button
                               onClick={() => onCourseSelect(course)}
                               className="text-blue-600 hover:text-blue-900 transition-colors"

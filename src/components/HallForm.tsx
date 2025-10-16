@@ -82,7 +82,6 @@ export default function HallForm({ hall, onSave, onCancel }: HallFormProps) {
           Wednesday: [],
           Thursday: [],
           Friday: [],
-          Saturday: [],
           Sunday: []
         }
       }

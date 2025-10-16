@@ -13,7 +13,7 @@ import {
 
 
 // Days of the week
-export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const
+export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 export type DayOfWeek = typeof DAYS_OF_WEEK[number]
 
 // Default slot duration in minutes
