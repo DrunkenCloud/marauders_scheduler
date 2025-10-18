@@ -9,7 +9,7 @@ import {
 
 // Helper function to calculate free minutes from timetable
 function calculateFreeMinutes(timetable: any, startHour: number, startMinute: number, endHour: number, endMinute: number): { totalFreeMinutes: number, dailyFreeMinutes: { [day: string]: number } } {
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  const days = ['Monday']
   const dailyFreeMinutes: { [day: string]: number } = {}
   let totalFreeMinutes = 0
 
@@ -41,7 +41,7 @@ function calculateFreeMinutes(timetable: any, startHour: number, startMinute: nu
 
 // Helper function to calculate current workload from timetable (keep in minutes)
 function calculateCurrentWorkload(timetable: any): { [day: string]: number } {
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  const days = ['Monday']
   const currentWorkload: { [day: string]: number } = {}
 
   for (const day of days) {
@@ -473,19 +473,16 @@ function isEntityFree(
 
   // Check if slot is within working hours
   if (slotStartMinutes < workingStartMinutes || slotEndMinutes > workingEndMinutes) {
-    console.log("here");
     return false
   }
 
   // Check for conflicts with existing slots
   for (const existingSlot of daySchedule) {
-    console.log(JSON.stringify(existingSlot));
     const existingStartMinutes = existingSlot.startHour * 60 + existingSlot.startMinute
     const existingEndMinutes = existingStartMinutes + existingSlot.duration
 
     // Check for overlap
     if (!(slotEndMinutes <= existingStartMinutes || slotStartMinutes >= existingEndMinutes)) {
-      console.log(slotStartMinutes, slotEndMinutes, existingStartMinutes, existingEndMinutes);
       return false // Overlap found
     }
   }
@@ -501,7 +498,7 @@ function canScheduleOnDay(
   const currentWorkload = entityWorkload.currentWorkload[day] || 0
   const threshold = entityWorkload.dailyThresholds[day] || 0
 
-  return currentWorkload < threshold
+  return currentWorkload <= threshold;
 }
 
 // Helper function to find a time slot where all entities are available
@@ -509,7 +506,8 @@ function findAvailableSlotForAllEntities(
   course: CompiledCourseData,
   day: string,
   duration: number,
-  data: CompiledSchedulingData
+  data: CompiledSchedulingData,
+  checkWorkload: boolean = true
 ): { startHour: number, startMinute: number } | null {
   // Get all entity IDs involved in this course
   const allEntityIds = [
@@ -542,7 +540,7 @@ function findAvailableSlotForAllEntities(
     const startMinute = minutes % 60
 
     // Check if all entities are available at this time
-    if (areAllEntitiesAvailable(course, day, startHour, startMinute, duration, data)) {
+    if (areAllEntitiesAvailable(course, day, startHour, startMinute, duration, data, checkWorkload)) {
       return { startHour, startMinute }
     }
   }
@@ -557,7 +555,8 @@ function areAllEntitiesAvailable(
   startHour: number,
   startMinute: number,
   duration: number,
-  data: CompiledSchedulingData
+  data: CompiledSchedulingData,
+  checkWorkload: boolean = true
 ): boolean {
   // Get all entity IDs involved in this course
   const allEntityIds = [
@@ -586,12 +585,11 @@ function areAllEntitiesAvailable(
       entity.endHour,
       entity.endMinute
     )) {
-      console.log(entityId);
       return false
     }
 
-    // Check if workload allows scheduling on this day
-    if (!canScheduleOnDay(entity.workload, day)) {
+    // Check if workload allows scheduling on this day (if requested)
+    if (checkWorkload && !canScheduleOnDay(entity.workload, day)) {
       return false
     }
   }
@@ -599,25 +597,61 @@ function areAllEntitiesAvailable(
   return true
 }
 
-// Main recursive scheduling function
-export function scheduleCourses(data: CompiledSchedulingData): { success: boolean, message: string, scheduledSlots?: Array<SlotFragment & { day: string }> } {
-  const scheduledSlots: Array<SlotFragment & { day: string }> = []
-  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+// Helper function to check if all entities can schedule on a specific day (workload-wise)
+function canAllEntitiesScheduleOnDay(
+  entityIds: string[],
+  day: string,
+  data: CompiledSchedulingData
+): boolean {
+  for (const entityId of entityIds) {
+    const entity = data.allEntities[entityId]
+    if (!entity) continue
 
-  // Base case: check if all courses are fully scheduled
-  const unscheduledCourses = data.courses.filter(course => course.scheduledCount < course.totalSessions)
-
-  if (unscheduledCourses.length === 0) {
-    return {
-      success: true,
-      message: 'All courses successfully scheduled',
-      scheduledSlots
+    if (!canScheduleOnDay(entity.workload, day)) {
+      return false
     }
   }
+  return true
+}
 
-  // Try to schedule each unscheduled course
+// Helper function to get all possible scheduling options for unscheduled courses
+function getAllSchedulingOptions(data: CompiledSchedulingData): {
+  withinWorkload: Array<{
+    course: CompiledCourseData,
+    day: string,
+    startHour: number,
+    startMinute: number,
+    duration: number
+  }>,
+  exceedsWorkload: Array<{
+    course: CompiledCourseData,
+    day: string,
+    startHour: number,
+    startMinute: number,
+    duration: number
+  }>
+} {
+  const withinWorkload: Array<{
+    course: CompiledCourseData,
+    day: string,
+    startHour: number,
+    startMinute: number,
+    duration: number
+  }> = []
+  
+  const exceedsWorkload: Array<{
+    course: CompiledCourseData,
+    day: string,
+    startHour: number,
+    startMinute: number,
+    duration: number
+  }> = []
+
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  const unscheduledCourses = data.courses.filter(course => course.scheduledCount < course.totalSessions)
+
   for (const course of unscheduledCourses) {
-    const sessionDuration = course.classDuration * course.sessionsPerLecture // Total duration in minutes
+    const sessionDuration = course.classDuration * course.sessionsPerLecture
 
     // Check if course has any entities assigned
     const allEntityIds = [
@@ -634,68 +668,430 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
       continue
     }
 
-    let scheduled = false
-
-    // Try each day of the week
+    // Find all possible slots for this course
     for (const day of days) {
-      if (scheduled) break
-
-      // Find available slot where all entities are free
       const availableSlot = findAvailableSlotForAllEntities(
         course,
         day,
         sessionDuration,
-        data
+        data,
+        false // Don't check workload constraints in this function
       )
 
       if (availableSlot) {
-        // Create the slot fragment with day information
-        const newSlot = {
-          type: 'course' as const,
+        // Check if this slot can be scheduled within workload constraints
+        const canScheduleWithinWorkload = canAllEntitiesScheduleOnDay(
+          allEntityIds,
+          day,
+          data
+        )
+
+        const option = {
+          course,
+          day,
           startHour: availableSlot.startHour,
           startMinute: availableSlot.startMinute,
-          duration: sessionDuration,
-          courseId: course.courseId,
-          courseCode: course.courseCode,
-          studentIds: course.studentIds,
-          facultyIds: course.facultyIds,
-          hallIds: course.hallIds,
-          studentGroupIds: course.studentGroupIds,
-          facultyGroupIds: course.facultyGroupIds,
-          hallGroupIds: course.hallGroupIds,
-          day: day
+          duration: sessionDuration
         }
 
-        scheduledSlots.push(newSlot)
-
-        // Update scheduled count
-        course.scheduledCount += 1
-
-        // Update workloads for all entities (keep in minutes)
-        for (const entityId of allEntityIds) {
-          const entity = data.allEntities[entityId]
-          if (entity) {
-            entity.workload.currentWorkload[day] += sessionDuration
-          }
+        if (canScheduleWithinWorkload) {
+          withinWorkload.push(option)
+        } else {
+          exceedsWorkload.push(option)
         }
-
-        scheduled = true
-        console.log(`Scheduled ${course.courseCode} on ${day} at ${availableSlot.startHour}:${availableSlot.startMinute.toString().padStart(2, '0')}`)
-      }
-    }
-
-    if (!scheduled) {
-      return {
-        success: false,
-        message: `Could not schedule course ${course.courseCode} - no available slots found`,
-        scheduledSlots
       }
     }
   }
 
-  return {
-    success: true,
-    message: `Successfully scheduled ${scheduledSlots.length} sessions`,
-    scheduledSlots
+  return { withinWorkload, exceedsWorkload }
+}
+
+// Helper function to sort scheduling options
+function sortSchedulingOptions(options: Array<{
+  course: CompiledCourseData,
+  day: string,
+  startHour: number,
+  startMinute: number,
+  duration: number
+}>): Array<{
+  course: CompiledCourseData,
+  day: string,
+  startHour: number,
+  startMinute: number,
+  duration: number
+}> {
+  const dayOrder: { [key: string]: number } = { 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4 }
+
+  return options.sort((a, b) => {
+    // Primary: Day (Monday -> Friday)
+    const dayDiff = (dayOrder[a.day] ?? 5) - (dayOrder[b.day] ?? 5)
+    if (dayDiff !== 0) return dayDiff
+
+    // Secondary: Start time
+    const aTime = a.startHour * 60 + a.startMinute
+    const bTime = b.startHour * 60 + b.startMinute
+    const timeDiff = aTime - bTime
+    if (timeDiff !== 0) return timeDiff
+
+    // Tertiary: Course code (lexicographically)
+    return a.course.courseCode.localeCompare(b.course.courseCode)
+  })
+}
+
+// Main recursive scheduling function
+export function scheduleCourses(data: CompiledSchedulingData): { success: boolean, message: string, scheduledSlots?: Array<SlotFragment & { day: string }> } {
+  const allScheduledSlots: Array<SlotFragment & { day: string }> = []
+
+  function scheduleRecursively(): boolean {
+    // Base case: check if all courses are fully scheduled
+    const unscheduledCourses = data.courses.filter(course => course.scheduledCount < course.totalSessions)
+
+    if (unscheduledCourses.length === 0) {
+      console.log('🎉 All courses successfully scheduled!')
+      console.log('📋 Final scheduled courses:')
+      allScheduledSlots.forEach((slot, index) => {
+        console.log(`${index + 1}. ${slot.courseCode} - ${slot.day} ${slot.startHour}:${slot.startMinute.toString().padStart(2, '0')}-${Math.floor((slot.startHour * 60 + slot.startMinute + slot.duration) / 60)}:${((slot.startHour * 60 + slot.startMinute + slot.duration) % 60).toString().padStart(2, '0')} (${slot.duration}min)`)
+      })
+      return true
+    }
+
+    // Get all possible scheduling options for current state
+    const { withinWorkload, exceedsWorkload } = getAllSchedulingOptions(data)
+
+    if (withinWorkload.length === 0 && exceedsWorkload.length === 0) {
+      console.log('❌ No scheduling options available - backtracking')
+      return false
+    }
+
+    // Sort both sets of options by day, time, then course code
+    const sortedWithinWorkload = sortSchedulingOptions(withinWorkload)
+    const sortedExceedsWorkload = sortSchedulingOptions(exceedsWorkload)
+    
+    // Prioritize options within workload constraints first
+    const sortedOptions = [...sortedWithinWorkload, ...sortedExceedsWorkload]
+
+    console.log(`🔍 Found ${sortedWithinWorkload.length} options within workload, ${sortedExceedsWorkload.length} exceeding workload`)
+    console.log(`📊 Trying ${sortedWithinWorkload.length > 0 ? 'workload-compliant' : 'workload-exceeding'} options first...`)
+
+    // Try each option
+    for (const option of sortedOptions) {
+      const { course, day, startHour, startMinute, duration } = option
+
+      console.log(`⏰ Trying to schedule ${course.courseCode} on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')}`)
+
+      // Create the slot
+      const newSlot = {
+        type: 'course' as const,
+        startHour,
+        startMinute,
+        duration,
+        courseId: course.courseId,
+        courseCode: course.courseCode,
+        studentIds: course.studentIds,
+        facultyIds: course.facultyIds,
+        hallIds: course.hallIds,
+        studentGroupIds: course.studentGroupIds,
+        facultyGroupIds: course.facultyGroupIds,
+        hallGroupIds: course.hallGroupIds,
+        day
+      }
+
+      // Get all entity IDs for this course
+      const allEntityIds = [
+        ...course.studentIds,
+        ...course.facultyIds,
+        ...course.hallIds,
+        ...course.studentGroupIds,
+        ...course.facultyGroupIds,
+        ...course.hallGroupIds
+      ]
+
+      // Save current state for backtracking
+      const originalScheduledCount = course.scheduledCount
+      const originalWorkloads: { [entityId: string]: { [day: string]: number } } = {}
+      const originalTimetables: { [entityId: string]: any } = {}
+
+      for (const entityId of allEntityIds) {
+        const entity = data.allEntities[entityId]
+        if (entity) {
+          originalWorkloads[entityId] = { ...entity.workload.currentWorkload }
+          // Deep copy the timetable for this day
+          originalTimetables[entityId] = {
+            ...entity.timetable,
+            [day]: [...(entity.timetable[day] || [])]
+          }
+        }
+      }
+
+      // Apply the scheduling
+      course.scheduledCount += 1
+      allScheduledSlots.push(newSlot)
+
+      // Update workloads AND timetables
+      for (const entityId of allEntityIds) {
+        const entity = data.allEntities[entityId]
+        if (entity) {
+          // Update workload
+          entity.workload.currentWorkload[day] += duration
+
+          // Add slot to entity's timetable
+          if (!entity.timetable[day]) {
+            entity.timetable[day] = []
+          }
+
+          // Create timetable slot format
+          const timetableSlot = {
+            type: newSlot.type,
+            startHour: newSlot.startHour,
+            startMinute: newSlot.startMinute,
+            duration: newSlot.duration,
+            courseId: newSlot.courseId,
+            courseCode: newSlot.courseCode,
+            hallIds: newSlot.hallIds || [],
+            facultyIds: newSlot.facultyIds || [],
+            hallGroupIds: newSlot.hallGroupIds || [],
+            facultyGroupIds: newSlot.facultyGroupIds || [],
+            studentIds: newSlot.studentIds || [],
+            studentGroupIds: newSlot.studentGroupIds || []
+          }
+
+          entity.timetable[day].push(timetableSlot)
+
+          // Sort slots by start time
+          entity.timetable[day].sort((a: any, b: any) => {
+            const aTime = a.startHour * 60 + a.startMinute
+            const bTime = b.startHour * 60 + b.startMinute
+            return aTime - bTime
+          })
+        }
+      }
+
+      console.log(`✅ Scheduled ${course.courseCode} (${course.scheduledCount}/${course.totalSessions}) on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')}`)
+
+      // Recursively try to schedule remaining courses
+      if (scheduleRecursively()) {
+        return true // Success path
+      }
+
+      // Backtrack: undo the changes
+      console.log(`🔄 Backtracking from ${course.courseCode} on ${day}`)
+      course.scheduledCount = originalScheduledCount
+      allScheduledSlots.pop()
+
+      // Restore workloads AND timetables
+      for (const entityId of allEntityIds) {
+        const entity = data.allEntities[entityId]
+        if (entity) {
+          // Restore workload
+          if (originalWorkloads[entityId]) {
+            entity.workload.currentWorkload = originalWorkloads[entityId]
+          }
+          // Restore timetable
+          if (originalTimetables[entityId]) {
+            entity.timetable = originalTimetables[entityId]
+          }
+        }
+      }
+    }
+
+    return false // No valid scheduling found
+  }
+
+  const success = scheduleRecursively()
+
+  if (success) {
+    return {
+      success: true,
+      message: `Successfully scheduled all courses! Total sessions: ${allScheduledSlots.length}`,
+      scheduledSlots: allScheduledSlots
+    }
+  } else {
+    return {
+      success: false,
+      message: `Could not schedule all courses. Scheduled ${allScheduledSlots.length} sessions before getting stuck.`,
+      scheduledSlots: allScheduledSlots
+    }
+  }
+}
+
+// Helper function to update entity timetables with scheduled slots
+export async function updateEntityTimetables(
+  scheduledSlots: Array<SlotFragment & { day: string }>,
+  sessionId: string
+): Promise<void> {
+  // Group slots by entity and entity type
+  const entityUpdates: { [entityType: string]: { [entityId: string]: Array<SlotFragment & { day: string }> } } = {
+    student: {},
+    faculty: {},
+    hall: {},
+    studentGroup: {},
+    facultyGroup: {},
+    hallGroup: {}
+  }
+
+  // Organize slots by entity
+  for (const slot of scheduledSlots) {
+    // Add to students
+    for (const studentId of slot.studentIds || []) {
+      if (!entityUpdates.student[studentId]) entityUpdates.student[studentId] = []
+      entityUpdates.student[studentId].push(slot)
+    }
+
+    // Add to faculties
+    for (const facultyId of slot.facultyIds || []) {
+      if (!entityUpdates.faculty[facultyId]) entityUpdates.faculty[facultyId] = []
+      entityUpdates.faculty[facultyId].push(slot)
+    }
+
+    // Add to halls
+    for (const hallId of slot.hallIds || []) {
+      if (!entityUpdates.hall[hallId]) entityUpdates.hall[hallId] = []
+      entityUpdates.hall[hallId].push(slot)
+    }
+
+    // Add to student groups
+    for (const groupId of slot.studentGroupIds || []) {
+      if (!entityUpdates.studentGroup[groupId]) entityUpdates.studentGroup[groupId] = []
+      entityUpdates.studentGroup[groupId].push(slot)
+    }
+
+    // Add to faculty groups
+    for (const groupId of slot.facultyGroupIds || []) {
+      if (!entityUpdates.facultyGroup[groupId]) entityUpdates.facultyGroup[groupId] = []
+      entityUpdates.facultyGroup[groupId].push(slot)
+    }
+
+    // Add to hall groups
+    for (const groupId of slot.hallGroupIds || []) {
+      if (!entityUpdates.hallGroup[groupId]) entityUpdates.hallGroup[groupId] = []
+      entityUpdates.hallGroup[groupId].push(slot)
+    }
+  }
+
+  // Update each entity's timetable
+  for (const [entityType, entities] of Object.entries(entityUpdates)) {
+    for (const [entityId, slots] of Object.entries(entities)) {
+      if (slots.length === 0) continue
+
+      // Get current timetable
+      let currentEntity: any
+      switch (entityType) {
+        case 'student':
+          currentEntity = await prisma.student.findUnique({ where: { id: entityId } })
+          break
+        case 'faculty':
+          currentEntity = await prisma.faculty.findUnique({ where: { id: entityId } })
+          break
+        case 'hall':
+          currentEntity = await prisma.hall.findUnique({ where: { id: entityId } })
+          break
+        case 'studentGroup':
+          currentEntity = await prisma.studentGroup.findUnique({ where: { id: entityId } })
+          break
+        case 'facultyGroup':
+          currentEntity = await prisma.facultyGroup.findUnique({ where: { id: entityId } })
+          break
+        case 'hallGroup':
+          currentEntity = await prisma.hallGroup.findUnique({ where: { id: entityId } })
+          break
+      }
+
+      if (!currentEntity) continue
+
+      const updatedTimetable = { ...currentEntity.timetable }
+
+      // Add new slots to timetable
+      for (const slot of slots) {
+        const { day } = slot
+        if (!updatedTimetable[day]) updatedTimetable[day] = []
+
+        // Convert SlotFragment to timetable slot format
+        const timetableSlot = {
+          type: slot.type,
+          startHour: slot.startHour,
+          startMinute: slot.startMinute,
+          duration: slot.duration,
+          courseId: slot.courseId,
+          courseCode: slot.courseCode,
+          blockerReason: slot.blockerReason,
+          hallIds: slot.hallIds || [],
+          facultyIds: slot.facultyIds || [],
+          hallGroupIds: slot.hallGroupIds || [],
+          facultyGroupIds: slot.facultyGroupIds || [],
+          studentIds: slot.studentIds || [],
+          studentGroupIds: slot.studentGroupIds || []
+        }
+
+        updatedTimetable[day].push(timetableSlot)
+      }
+
+      // Sort slots by start time for each day
+      for (const day of Object.keys(updatedTimetable)) {
+        updatedTimetable[day].sort((a: any, b: any) => {
+          const aTime = a.startHour * 60 + a.startMinute
+          const bTime = b.startHour * 60 + b.startMinute
+          return aTime - bTime
+        })
+      }
+
+      // Update the entity's timetable in the database
+      switch (entityType) {
+        case 'student':
+          await prisma.student.update({
+            where: { id: entityId },
+            data: { timetable: updatedTimetable }
+          })
+          break
+        case 'faculty':
+          await prisma.faculty.update({
+            where: { id: entityId },
+            data: { timetable: updatedTimetable }
+          })
+          break
+        case 'hall':
+          await prisma.hall.update({
+            where: { id: entityId },
+            data: { timetable: updatedTimetable }
+          })
+          break
+        case 'studentGroup':
+          await prisma.studentGroup.update({
+            where: { id: entityId },
+            data: { timetable: updatedTimetable }
+          })
+          break
+        case 'facultyGroup':
+          await prisma.facultyGroup.update({
+            where: { id: entityId },
+            data: { timetable: updatedTimetable }
+          })
+          break
+        case 'hallGroup':
+          await prisma.hallGroup.update({
+            where: { id: entityId },
+            data: { timetable: updatedTimetable }
+          })
+          break
+      }
+    }
+  }
+
+  // Update course scheduled counts
+  const courseUpdates: { [courseId: string]: number } = {}
+  for (const slot of scheduledSlots) {
+    if (slot.courseId) {
+      courseUpdates[slot.courseId] = (courseUpdates[slot.courseId] || 0) + 1
+    }
+  }
+
+  for (const [courseId, additionalCount] of Object.entries(courseUpdates)) {
+    await prisma.course.update({
+      where: { id: courseId },
+      data: {
+        scheduledCount: {
+          increment: additionalCount
+        }
+      }
+    })
   }
 }

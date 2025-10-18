@@ -58,7 +58,6 @@ export async function POST(request: NextRequest) {
 
     // Run the scheduling algorithm
     const schedulingResult = scheduleCourses(compiled);
-    console.log(JSON.stringify(schedulingResult, null, 2));
 
     const response: ApiResponse = {
       success: schedulingResult.success,
