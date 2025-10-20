@@ -14,8 +14,12 @@ export default function CourseScheduling() {
   const [courses, setCourses] = useState<Course[]>([])
   const [selectedCourses, setSelectedCourses] = useState<string[]>([])
   const [courseConfigs, setCourseConfigs] = useState<{ [courseId: string]: CourseSchedulingConfig }>({})
+  const [randomSeed, setRandomSeed] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [scheduling, setScheduling] = useState(false)
+  const [scheduledSlots, setScheduledSlots] = useState<any[]>([])
+  const [schedulingResult, setSchedulingResult] = useState<any>(null)
+  const [committing, setCommitting] = useState(false)
 
   // Load courses
   useEffect(() => {
@@ -42,7 +46,7 @@ export default function CourseScheduling() {
   const handleCourseToggle = (courseId: string) => {
     setSelectedCourses(prev => {
       const isCurrentlySelected = prev.includes(courseId)
-      
+
       if (isCurrentlySelected) {
         // Remove from selection and config
         const newConfigs = { ...courseConfigs }
@@ -119,31 +123,38 @@ export default function CourseScheduling() {
 
     setScheduling(true)
     try {
+      const requestBody: any = {
+        sessionId: currentSession?.id,
+        courseConfigs: selectedCourses.map(courseId => courseConfigs[courseId])
+      }
+
+      // Add random seed if provided
+      if (randomSeed.trim() !== '') {
+        const seedNumber = parseInt(randomSeed.trim())
+        if (!isNaN(seedNumber)) {
+          requestBody.randomSeed = seedNumber
+        }
+      }
+
       const response = await fetch('/api/schedule-all', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          sessionId: currentSession?.id,
-          courseConfigs: selectedCourses.map(courseId => courseConfigs[courseId])
-        })
+        body: JSON.stringify(requestBody)
       })
 
       const data = await response.json()
-      
+
       if (data.success) {
-        alert(`Scheduling completed! ${data.message}`)
-        setSelectedCourses([])
-        setCourseConfigs({})
-        // Reload courses to show updated scheduled counts
-        const coursesResponse = await fetch(`/api/courses?sessionId=${currentSession?.id}&limit=1000`)
-        const coursesData = await coursesResponse.json()
-        if (coursesData.success) {
-          setCourses(coursesData.data.courses || [])
-        }
+        // Store the scheduling results for preview
+        setScheduledSlots(data.data.scheduledSlots || [])
+        setSchedulingResult(data.data)
+        alert(`Scheduling preview ready! Found ${data.data.scheduledSlots?.length || 0} sessions to schedule.`)
       } else {
         alert(`Scheduling failed: ${data.error?.message || 'Unknown error'}`)
+        setScheduledSlots([])
+        setSchedulingResult(null)
       }
     } catch (error) {
       console.error('Error scheduling courses:', error)
@@ -158,6 +169,58 @@ export default function CourseScheduling() {
       const config = courseConfigs[courseId]
       return total + (config?.sessionsToSchedule || 0)
     }, 0)
+  }
+
+  const handleCommitSchedule = async () => {
+    if (!scheduledSlots.length || !currentSession) {
+      alert('No scheduled slots to commit.')
+      return
+    }
+
+    setCommitting(true)
+    try {
+      const response = await fetch('/api/schedule-all/commit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          sessionId: currentSession.id,
+          scheduledSlots: scheduledSlots
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        alert(`Successfully committed ${scheduledSlots.length} scheduled sessions to the database!`)
+
+        // Clear the preview
+        setScheduledSlots([])
+        setSchedulingResult(null)
+        setSelectedCourses([])
+        setCourseConfigs({})
+
+        // Reload courses to show updated scheduled counts
+        const coursesResponse = await fetch(`/api/courses?sessionId=${currentSession.id}&limit=1000`)
+        const coursesData = await coursesResponse.json()
+        if (coursesData.success) {
+          setCourses(coursesData.data.courses || [])
+        }
+      } else {
+        alert(`Failed to commit schedule: ${data.error?.message || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error committing schedule:', error)
+      alert('Failed to commit schedule. Please try again.')
+    } finally {
+      setCommitting(false)
+    }
+  }
+
+  const handleClearPreview = () => {
+    setScheduledSlots([])
+    setSchedulingResult(null)
   }
 
   if (!currentSession) {
@@ -234,13 +297,12 @@ export default function CourseScheduling() {
                   return (
                     <div
                       key={course.id}
-                      className={`border rounded-lg p-4 transition-colors ${
-                        isFullyScheduled
+                      className={`border rounded-lg p-4 transition-colors ${isFullyScheduled
                           ? 'border-gray-200 bg-gray-50 opacity-60'
                           : isSelected
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex items-start space-x-3">
@@ -261,7 +323,7 @@ export default function CourseScheduling() {
                               )}
                             </div>
                             <p className="text-sm text-gray-600 mb-2">{course.name}</p>
-                            
+
                             {/* Session Slider - Only show when selected */}
                             {isSelected && !isFullyScheduled && (
                               <div className="mt-3 p-3 bg-white rounded border">
@@ -315,12 +377,43 @@ export default function CourseScheduling() {
                 })}
               </div>
 
+              {/* Random Seed Input */}
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label htmlFor="randomSeed" className="block text-sm font-medium text-gray-700 mb-1">
+                      Random Seed (Optional)
+                    </label>
+                    <p className="text-xs text-gray-500">
+                      Use the same seed to get reproducible scheduling results
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="randomSeed"
+                      type="number"
+                      value={randomSeed}
+                      onChange={(e) => setRandomSeed(e.target.value)}
+                      placeholder="e.g. 12345"
+                      className="w-24 px-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button
+                      onClick={() => setRandomSeed(Math.floor(Math.random() * 1000000).toString())}
+                      className="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
+                      title="Generate random seed"
+                    >
+                      🎲
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* Schedule Button */}
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
                   {selectedCourses.length > 0 && (
                     <>
-                      <span className="font-medium">{selectedCourses.length}</span> course{selectedCourses.length !== 1 ? 's' : ''} selected • 
+                      <span className="font-medium">{selectedCourses.length}</span> course{selectedCourses.length !== 1 ? 's' : ''} selected •
                       <span className="font-medium text-blue-600 ml-1">{getTotalSessionsToSchedule()}</span> session{getTotalSessionsToSchedule() !== 1 ? 's' : ''} to schedule
                     </>
                   )}
@@ -343,6 +436,145 @@ export default function CourseScheduling() {
             </>
           )}
         </div>
+
+        {/* Scheduled Slots Preview */}
+        {scheduledSlots.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Scheduling Preview
+                </h2>
+                <p className="text-sm text-gray-600">
+                  {scheduledSlots.length} sessions scheduled • Review before committing to database
+                </p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={handleClearPreview}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Clear Preview
+                </button>
+                <button
+                  onClick={handleCommitSchedule}
+                  disabled={committing}
+                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-medium py-2 px-4 rounded-md transition-colors"
+                >
+                  {committing ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Committing...
+                    </div>
+                  ) : (
+                    `Commit ${scheduledSlots.length} Sessions`
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Scheduling Summary */}
+            {schedulingResult && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-start space-x-2">
+                  <div className="text-blue-600 mt-0.5">ℹ️</div>
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-900">Scheduling Summary</h4>
+                    <p className="text-sm text-blue-700 mt-1">{schedulingResult.message}</p>
+                    <div className="text-xs text-blue-600 mt-2">
+                      {schedulingResult.coursesCount} courses • {schedulingResult.totalSessionsToSchedule} sessions requested
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Scheduled Slots Table */}
+            <div className="overflow-hidden border border-gray-200 rounded-lg">
+              <div className="overflow-x-auto max-h-96">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Course
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Day
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Time
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Duration
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Entities
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {scheduledSlots
+                      .sort((a, b) => {
+                        const dayOrder = { 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4 }
+                        const dayDiff = (dayOrder[a.day as keyof typeof dayOrder] || 5) - (dayOrder[b.day as keyof typeof dayOrder] || 5)
+                        if (dayDiff !== 0) return dayDiff
+
+                        const aTime = a.startHour * 60 + a.startMinute
+                        const bTime = b.startHour * 60 + b.startMinute
+                        return aTime - bTime
+                      })
+                      .map((slot, index) => {
+                        const startTime = `${slot.startHour}:${slot.startMinute.toString().padStart(2, '0')}`
+                        const endMinutes = slot.startHour * 60 + slot.startMinute + slot.duration
+                        const endTime = `${Math.floor(endMinutes / 60)}:${(endMinutes % 60).toString().padStart(2, '0')}`
+
+                        const totalEntities = (slot.studentIds?.length || 0) +
+                          (slot.facultyIds?.length || 0) +
+                          (slot.hallIds?.length || 0) +
+                          (slot.studentGroupIds?.length || 0) +
+                          (slot.facultyGroupIds?.length || 0) +
+                          (slot.hallGroupIds?.length || 0)
+
+                        return (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{slot.courseCode}</div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{slot.day}</div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{startTime} - {endTime}</div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="text-sm text-gray-900">{slot.duration} min</div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="text-sm text-gray-500">{totalEntities} entities</div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Day-wise Summary */}
+            <div className="mt-4 grid grid-cols-5 gap-2">
+              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(day => {
+                const daySlots = scheduledSlots.filter(slot => slot.day === day)
+                return (
+                  <div key={day} className="text-center p-2 bg-gray-50 rounded">
+                    <div className="text-xs font-medium text-gray-700">{day}</div>
+                    <div className="text-lg font-bold text-blue-600">{daySlots.length}</div>
+                    <div className="text-xs text-gray-500">sessions</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

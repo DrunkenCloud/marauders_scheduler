@@ -5,7 +5,7 @@ import { compileSchedulingData, scheduleCourses } from './algo'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { sessionId, courseConfigs, courseIds } = body
+    const { sessionId, courseConfigs, courseIds, randomSeed } = body
 
     // Support both old format (courseIds) and new format (courseConfigs)
     let finalCourseConfigs: Array<{ courseId: string, sessionsToSchedule: number }>
@@ -88,9 +88,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`Scheduling compilation complete for ${extractedCourseIds.length} courses in session ${sessionId}`)
     console.log('Course session targets:', finalCourseConfigs)
+    if (randomSeed !== undefined) {
+      console.log('Random seed provided:', randomSeed)
+    }
 
     // Run the scheduling algorithm
-    const schedulingResult = scheduleCourses(compiled);
+    const schedulingResult = scheduleCourses(compiled, randomSeed);
 
     const totalSessionsToSchedule = finalCourseConfigs.reduce((total, config) => {
       if (config.sessionsToSchedule === -1) {

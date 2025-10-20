@@ -625,11 +625,26 @@ function getScheduledDaysForCourse(courseId: string, allScheduledSlots: Array<Sl
   return scheduledDays
 }
 
-// Helper function to shuffle an array
-function shuffleArray<T>(array: T[]): T[] {
+// Simple seeded random number generator (Linear Congruential Generator)
+class SeededRandom {
+  private seed: number
+
+  constructor(seed: number) {
+    this.seed = seed % 2147483647
+    if (this.seed <= 0) this.seed += 2147483646
+  }
+
+  next(): number {
+    this.seed = (this.seed * 16807) % 2147483647
+    return (this.seed - 1) / 2147483646
+  }
+}
+
+// Helper function to shuffle an array with seeded randomness
+function shuffleArray<T>(array: T[], rng: SeededRandom): T[] {
   const shuffled = [...array]
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng.next() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   return shuffled
@@ -684,7 +699,6 @@ function getCourseSchedulingOptionsMap(data: CompiledSchedulingData, allSchedule
     ]
 
     if (allEntityIds.length === 0) {
-      console.log(`Course ${course.courseCode} has no entities assigned`)
       continue
     }
 
@@ -750,8 +764,14 @@ function getCourseSchedulingOptionsMap(data: CompiledSchedulingData, allSchedule
 
 
 // Main recursive scheduling function
-export function scheduleCourses(data: CompiledSchedulingData): { success: boolean, message: string, scheduledSlots?: Array<SlotFragment & { day: string }> } {
+export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { success: boolean, message: string, scheduledSlots?: Array<SlotFragment & { day: string }> } {
   const allScheduledSlots: Array<SlotFragment & { day: string }> = []
+
+  // Create seeded random number generator
+  const actualSeed = seed ?? Math.floor(Math.random() * 1000000)
+  const rng = new SeededRandom(actualSeed)
+
+  console.log(`🎲 Using random seed: ${actualSeed} ${seed ? '(provided)' : '(generated)'}`)
 
   function scheduleRecursively(): boolean {
     // Base case: check if all courses have reached their target or are fully scheduled
@@ -777,45 +797,38 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
       const options = courseOptionsMap.get(course.courseId) || []
       const target = course.targetSessions ?? course.totalSessions
       const remainingSessions = target - course.scheduledCount
-      
+
       if (options.length < remainingSessions) {
-        console.log(`❌ Course ${course.courseCode} has only ${options.length} available slots but needs ${remainingSessions} more sessions - backtracking`)
         return false
       }
     }
 
     // Shuffle the unscheduled courses for randomness
-    const shuffledCourses = shuffleArray(currentUnscheduledCourses)
+    const shuffledCourses = shuffleArray(currentUnscheduledCourses, rng)
 
     // Log course options summary
     let totalWithinWorkload = 0
     let totalNewDays = 0
     let totalRequiredSessions = 0
     let totalAvailableSlots = 0
-    
+
     for (const course of currentUnscheduledCourses) {
       const options = courseOptionsMap.get(course.courseId) || []
       const target = course.targetSessions ?? course.totalSessions
       const remainingSessions = target - course.scheduledCount
-      
+
       const withinWorkloadCount = options.filter(opt => opt.withinWorkload).length
       const newDayCount = options.filter(opt => opt.isNewDay).length
-      
+
       totalWithinWorkload += withinWorkloadCount
       totalNewDays += newDayCount
       totalRequiredSessions += remainingSessions
       totalAvailableSlots += options.length
     }
 
-    console.log(`🎲 Shuffled ${shuffledCourses.length} courses for randomness`)
-    console.log(`🔍 Scheduling capacity: ${totalAvailableSlots} slots available for ${totalRequiredSessions} required sessions`)
-    console.log(`📊 Options breakdown: ${totalWithinWorkload} within workload, ${totalNewDays} new days available`)
-
     // Try each shuffled course
     for (const course of shuffledCourses) {
       const options = courseOptionsMap.get(course.courseId) || []
-
-      console.log(`📚 Trying course ${course.courseCode} with ${options.length} possible slots`)
 
       // Try each sorted option for this course
       for (const option of options) {
@@ -823,7 +836,6 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
 
         const dayIndicator = isNewDay ? '🆕' : '🔄'
         const workloadIndicator = withinWorkload ? '✅' : '⚠️'
-        console.log(`⏰ Trying ${course.courseCode} on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')} ${dayIndicator}${isNewDay ? ' (new day)' : ' (repeat day)'} ${workloadIndicator}${withinWorkload ? ' (within workload)' : ' (exceeds workload)'}`)
 
         // Create the slot
         const newSlot = {
@@ -913,7 +925,6 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
         }
 
         const target = course.targetSessions ?? course.totalSessions
-        console.log(`✅ Scheduled ${course.courseCode} (${course.scheduledCount}/${target}${course.targetSessions ? ` of ${course.totalSessions} total` : ''}) on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')}`)
 
         // Recursively try to schedule remaining courses
         if (scheduleRecursively()) {
@@ -921,7 +932,6 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
         }
 
         // Backtrack: undo the changes
-        console.log(`🔄 Backtracking from ${course.courseCode} on ${day}`)
         course.scheduledCount = originalScheduledCount
         allScheduledSlots.pop()
 
@@ -941,9 +951,6 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
         }
 
       }
-
-      // If we get here, this course couldn't be scheduled with any of its options
-      console.log(`❌ Could not schedule ${course.courseCode} with any available slots`)
     }
 
     return false // No valid scheduling found
