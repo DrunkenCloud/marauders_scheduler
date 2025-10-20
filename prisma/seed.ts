@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient, Student, Faculty, Hall, Course } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -32,20 +32,46 @@ async function main() {
     }
   })
 
-  // Create 60 students
-  console.log('👥 Creating 60 students...')
-  const students = []
+  // Create 60 students with break slots
+  console.log('👥 Creating 60 students with break slots...')
+  const students: Student[] = []
+
+  // Define break slots for all students
+  const breakSlots = [
+    {
+      type: 'blocker',
+      startHour: 10,
+      startMinute: 40,
+      duration: 20,
+      blockerReason: '20 min Break'
+    },
+    {
+      type: 'blocker',
+      startHour: 11,
+      startMinute: 50,
+      duration: 60,
+      blockerReason: 'Lunch Break'
+    },
+    {
+      type: 'blocker',
+      startHour: 13,
+      startMinute: 40,
+      duration: 10,
+      blockerReason: '10 min Break'
+    }
+  ]
+
   for (let i = 1; i <= 60; i++) {
     const student = await prisma.student.create({
       data: {
         digitalId: 2025000 + i,
         sessionId: session.id,
         timetable: {
-          Monday: [],
-          Tuesday: [],
-          Wednesday: [],
-          Thursday: [],
-          Friday: []
+          Monday: [...breakSlots],
+          Tuesday: [...breakSlots],
+          Wednesday: [...breakSlots],
+          Thursday: [...breakSlots],
+          Friday: [...breakSlots]
         },
         startHour: 8,
         startMinute: 10,
@@ -56,18 +82,18 @@ async function main() {
     students.push(student)
   }
 
-  // Create student group and add all students to it
-  console.log('👥 Creating student group...')
+  // Create student group with break slots
+  console.log('👥 Creating student group with break slots...')
   const studentGroup = await prisma.studentGroup.create({
     data: {
       groupName: 'All Students Group',
       sessionId: session.id,
       timetable: {
-        Monday: [],
-        Tuesday: [],
-        Wednesday: [],
-        Thursday: [],
-        Friday: []
+        Monday: [...breakSlots],
+        Tuesday: [...breakSlots],
+        Wednesday: [...breakSlots],
+        Thursday: [...breakSlots],
+        Friday: [...breakSlots]
       },
       startHour: 8,
       startMinute: 10,
@@ -89,7 +115,7 @@ async function main() {
 
   // Create 6 faculty members
   console.log('👨‍🏫 Creating 6 faculty members...')
-  const faculties = []
+  const faculties: Faculty[] = []
   const facultyNames = [
     { name: 'Dr. Alice Johnson', shortForm: 'AJ' },
     { name: 'Prof. Bob Smith', shortForm: 'BS' },
@@ -123,7 +149,7 @@ async function main() {
 
   // Create 5 halls
   console.log('🏢 Creating 5 halls...')
-  const halls = []
+  const halls: Hall[] = []
   const hallData = [
     { name: 'Lecture Hall A', floor: 'Ground Floor', building: 'Main Building', shortForm: 'LHA' },
     { name: 'Lecture Hall B', floor: 'First Floor', building: 'Main Building', shortForm: 'LHB' },
@@ -158,7 +184,7 @@ async function main() {
 
   // Create 8 courses
   console.log('📚 Creating 8 courses...')
-  const courses = []
+  const courses: Course[] = []
 
   // 6 courses with 1 session per lecture (50 min duration)
   const singleSessionCourses = [
