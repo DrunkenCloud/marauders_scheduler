@@ -301,6 +301,7 @@ export interface CompiledCourseData {
   sessionsPerLecture: number
   totalSessions: number
   scheduledCount: number
+  targetSessions?: number // Optional: limit sessions to schedule in this run
   studentIds: string[]
   facultyIds: string[]
   hallIds: string[]

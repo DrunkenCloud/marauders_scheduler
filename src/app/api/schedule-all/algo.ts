@@ -9,7 +9,7 @@ import {
 
 // Helper function to calculate free minutes from timetable
 function calculateFreeMinutes(timetable: any, startHour: number, startMinute: number, endHour: number, endMinute: number): { totalFreeMinutes: number, dailyFreeMinutes: { [day: string]: number } } {
-  const days = ['Monday']
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const dailyFreeMinutes: { [day: string]: number } = {}
   let totalFreeMinutes = 0
 
@@ -41,7 +41,7 @@ function calculateFreeMinutes(timetable: any, startHour: number, startMinute: nu
 
 // Helper function to calculate current workload from timetable (keep in minutes)
 function calculateCurrentWorkload(timetable: any): { [day: string]: number } {
-  const days = ['Monday']
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const currentWorkload: { [day: string]: number } = {}
 
   for (const day of days) {
@@ -638,7 +638,7 @@ function getAllSchedulingOptions(data: CompiledSchedulingData): {
     startMinute: number,
     duration: number
   }> = []
-  
+
   const exceedsWorkload: Array<{
     course: CompiledCourseData,
     day: string,
@@ -648,7 +648,10 @@ function getAllSchedulingOptions(data: CompiledSchedulingData): {
   }> = []
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
-  const unscheduledCourses = data.courses.filter(course => course.scheduledCount < course.totalSessions)
+  const unscheduledCourses = data.courses.filter(course => {
+    const target = course.targetSessions ?? course.totalSessions
+    return course.scheduledCount < target
+  })
 
   for (const course of unscheduledCourses) {
     const sessionDuration = course.classDuration * course.sessionsPerLecture
@@ -723,18 +726,19 @@ function sortSchedulingOptions(options: Array<{
   const dayOrder: { [key: string]: number } = { 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4 }
 
   return options.sort((a, b) => {
-    // Primary: Day (Monday -> Friday)
-    const dayDiff = (dayOrder[a.day] ?? 5) - (dayOrder[b.day] ?? 5)
-    if (dayDiff !== 0) return dayDiff
 
-    // Secondary: Start time
+    // Primary: Start time
     const aTime = a.startHour * 60 + a.startMinute
     const bTime = b.startHour * 60 + b.startMinute
     const timeDiff = aTime - bTime
     if (timeDiff !== 0) return timeDiff
 
+    // Secondary: Day (Monday -> Friday)
+    const dayDiff = (dayOrder[a.day] ?? 5) - (dayOrder[b.day] ?? 5)
+    if (dayDiff !== 0) return dayDiff
+
     // Tertiary: Course code (lexicographically)
-    return a.course.courseCode.localeCompare(b.course.courseCode)
+    return Math.random() - 0.5;
   })
 }
 
@@ -743,8 +747,11 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
   const allScheduledSlots: Array<SlotFragment & { day: string }> = []
 
   function scheduleRecursively(): boolean {
-    // Base case: check if all courses are fully scheduled
-    const unscheduledCourses = data.courses.filter(course => course.scheduledCount < course.totalSessions)
+    // Base case: check if all courses have reached their target or are fully scheduled
+    const unscheduledCourses = data.courses.filter(course => {
+      const target = course.targetSessions ?? course.totalSessions
+      return course.scheduledCount < target
+    })
 
     if (unscheduledCourses.length === 0) {
       console.log('🎉 All courses successfully scheduled!')
@@ -766,7 +773,7 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
     // Sort both sets of options by day, time, then course code
     const sortedWithinWorkload = sortSchedulingOptions(withinWorkload)
     const sortedExceedsWorkload = sortSchedulingOptions(exceedsWorkload)
-    
+
     // Prioritize options within workload constraints first
     const sortedOptions = [...sortedWithinWorkload, ...sortedExceedsWorkload]
 
@@ -866,7 +873,8 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
         }
       }
 
-      console.log(`✅ Scheduled ${course.courseCode} (${course.scheduledCount}/${course.totalSessions}) on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')}`)
+      const target = course.targetSessions ?? course.totalSessions
+      console.log(`✅ Scheduled ${course.courseCode} (${course.scheduledCount}/${target}${course.targetSessions ? ` of ${course.totalSessions} total` : ''}) on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')}`)
 
       // Recursively try to schedule remaining courses
       if (scheduleRecursively()) {
