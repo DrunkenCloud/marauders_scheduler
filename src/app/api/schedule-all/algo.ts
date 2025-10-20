@@ -614,38 +614,47 @@ function canAllEntitiesScheduleOnDay(
   return true
 }
 
-// Helper function to get all possible scheduling options for unscheduled courses
-function getAllSchedulingOptions(data: CompiledSchedulingData): {
-  withinWorkload: Array<{
-    course: CompiledCourseData,
-    day: string,
-    startHour: number,
-    startMinute: number,
-    duration: number
-  }>,
-  exceedsWorkload: Array<{
-    course: CompiledCourseData,
-    day: string,
-    startHour: number,
-    startMinute: number,
-    duration: number
-  }>
-} {
-  const withinWorkload: Array<{
-    course: CompiledCourseData,
-    day: string,
-    startHour: number,
-    startMinute: number,
-    duration: number
-  }> = []
+// Helper function to get days a course has already been scheduled on
+function getScheduledDaysForCourse(courseId: string, allScheduledSlots: Array<SlotFragment & { day: string }>): Set<string> {
+  const scheduledDays = new Set<string>()
+  for (const slot of allScheduledSlots) {
+    if (slot.courseId === courseId) {
+      scheduledDays.add(slot.day)
+    }
+  }
+  return scheduledDays
+}
 
-  const exceedsWorkload: Array<{
-    course: CompiledCourseData,
+// Helper function to shuffle an array
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+// Helper function to get all possible scheduling options organized by course
+function getCourseSchedulingOptionsMap(data: CompiledSchedulingData, allScheduledSlots: Array<SlotFragment & { day: string }>): {
+  courseOptionsMap: Map<string, Array<{
     day: string,
     startHour: number,
     startMinute: number,
-    duration: number
-  }> = []
+    duration: number,
+    isNewDay: boolean,
+    withinWorkload: boolean
+  }>>,
+  unscheduledCourses: CompiledCourseData[]
+} {
+  const courseOptionsMap = new Map<string, Array<{
+    day: string,
+    startHour: number,
+    startMinute: number,
+    duration: number,
+    isNewDay: boolean,
+    withinWorkload: boolean
+  }>>()
 
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   const unscheduledCourses = data.courses.filter(course => {
@@ -655,6 +664,14 @@ function getAllSchedulingOptions(data: CompiledSchedulingData): {
 
   for (const course of unscheduledCourses) {
     const sessionDuration = course.classDuration * course.sessionsPerLecture
+    const courseOptions: Array<{
+      day: string,
+      startHour: number,
+      startMinute: number,
+      duration: number,
+      isNewDay: boolean,
+      withinWorkload: boolean
+    }> = []
 
     // Check if course has any entities assigned
     const allEntityIds = [
@@ -671,7 +688,10 @@ function getAllSchedulingOptions(data: CompiledSchedulingData): {
       continue
     }
 
-    // Find all possible slots for this course
+    // Get days this course has already been scheduled on
+    const scheduledDays = getScheduledDaysForCourse(course.courseId, allScheduledSlots)
+
+    // Find available slots on each day for this course
     for (const day of days) {
       const availableSlot = findAvailableSlotForAllEntities(
         course,
@@ -689,58 +709,45 @@ function getAllSchedulingOptions(data: CompiledSchedulingData): {
           data
         )
 
-        const option = {
-          course,
+        // Check if this is a new day for this course
+        const isNewDay = !scheduledDays.has(day)
+
+        courseOptions.push({
           day,
           startHour: availableSlot.startHour,
           startMinute: availableSlot.startMinute,
-          duration: sessionDuration
-        }
-
-        if (canScheduleWithinWorkload) {
-          withinWorkload.push(option)
-        } else {
-          exceedsWorkload.push(option)
-        }
+          duration: sessionDuration,
+          isNewDay,
+          withinWorkload: canScheduleWithinWorkload
+        })
       }
     }
+
+    // Sort options for this course (day diversity first, then workload, then time)
+    courseOptions.sort((a, b) => {
+      // Primary: Day diversity (new days first)
+      if (a.isNewDay !== b.isNewDay) {
+        return a.isNewDay ? -1 : 1
+      }
+
+      // Secondary: Workload compliance (within workload first)
+      if (a.withinWorkload !== b.withinWorkload) {
+        return a.withinWorkload ? -1 : 1
+      }
+
+      // Tertiary: Start time (earlier first)
+      const aTime = a.startHour * 60 + a.startMinute
+      const bTime = b.startHour * 60 + b.startMinute
+      return aTime - bTime
+    })
+
+    courseOptionsMap.set(course.courseId, courseOptions)
   }
 
-  return { withinWorkload, exceedsWorkload }
+  return { courseOptionsMap, unscheduledCourses }
 }
 
-// Helper function to sort scheduling options
-function sortSchedulingOptions(options: Array<{
-  course: CompiledCourseData,
-  day: string,
-  startHour: number,
-  startMinute: number,
-  duration: number
-}>): Array<{
-  course: CompiledCourseData,
-  day: string,
-  startHour: number,
-  startMinute: number,
-  duration: number
-}> {
-  const dayOrder: { [key: string]: number } = { 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4 }
 
-  return options.sort((a, b) => {
-
-    // Primary: Start time
-    const aTime = a.startHour * 60 + a.startMinute
-    const bTime = b.startHour * 60 + b.startMinute
-    const timeDiff = aTime - bTime
-    if (timeDiff !== 0) return timeDiff
-
-    // Secondary: Day (Monday -> Friday)
-    const dayDiff = (dayOrder[a.day] ?? 5) - (dayOrder[b.day] ?? 5)
-    if (dayDiff !== 0) return dayDiff
-
-    // Tertiary: Course code (lexicographically)
-    return Math.random() - 0.5;
-  })
-}
 
 // Main recursive scheduling function
 export function scheduleCourses(data: CompiledSchedulingData): { success: boolean, message: string, scheduledSlots?: Array<SlotFragment & { day: string }> } {
@@ -762,144 +769,181 @@ export function scheduleCourses(data: CompiledSchedulingData): { success: boolea
       return true
     }
 
-    // Get all possible scheduling options for current state
-    const { withinWorkload, exceedsWorkload } = getAllSchedulingOptions(data)
+    // Get course options map and unscheduled courses
+    const { courseOptionsMap, unscheduledCourses: currentUnscheduledCourses } = getCourseSchedulingOptionsMap(data, allScheduledSlots)
 
-    if (withinWorkload.length === 0 && exceedsWorkload.length === 0) {
-      console.log('❌ No scheduling options available - backtracking')
-      return false
+    // Early exit: check if any course has insufficient slots for remaining sessions
+    for (const course of currentUnscheduledCourses) {
+      const options = courseOptionsMap.get(course.courseId) || []
+      const target = course.targetSessions ?? course.totalSessions
+      const remainingSessions = target - course.scheduledCount
+      
+      if (options.length < remainingSessions) {
+        console.log(`❌ Course ${course.courseCode} has only ${options.length} available slots but needs ${remainingSessions} more sessions - backtracking`)
+        return false
+      }
     }
 
-    // Sort both sets of options by day, time, then course code
-    const sortedWithinWorkload = sortSchedulingOptions(withinWorkload)
-    const sortedExceedsWorkload = sortSchedulingOptions(exceedsWorkload)
+    // Shuffle the unscheduled courses for randomness
+    const shuffledCourses = shuffleArray(currentUnscheduledCourses)
 
-    // Prioritize options within workload constraints first
-    const sortedOptions = [...sortedWithinWorkload, ...sortedExceedsWorkload]
-
-    console.log(`🔍 Found ${sortedWithinWorkload.length} options within workload, ${sortedExceedsWorkload.length} exceeding workload`)
-    console.log(`📊 Trying ${sortedWithinWorkload.length > 0 ? 'workload-compliant' : 'workload-exceeding'} options first...`)
-
-    // Try each option
-    for (const option of sortedOptions) {
-      const { course, day, startHour, startMinute, duration } = option
-
-      console.log(`⏰ Trying to schedule ${course.courseCode} on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')}`)
-
-      // Create the slot
-      const newSlot = {
-        type: 'course' as const,
-        startHour,
-        startMinute,
-        duration,
-        courseId: course.courseId,
-        courseCode: course.courseCode,
-        studentIds: course.studentIds,
-        facultyIds: course.facultyIds,
-        hallIds: course.hallIds,
-        studentGroupIds: course.studentGroupIds,
-        facultyGroupIds: course.facultyGroupIds,
-        hallGroupIds: course.hallGroupIds,
-        day
-      }
-
-      // Get all entity IDs for this course
-      const allEntityIds = [
-        ...course.studentIds,
-        ...course.facultyIds,
-        ...course.hallIds,
-        ...course.studentGroupIds,
-        ...course.facultyGroupIds,
-        ...course.hallGroupIds
-      ]
-
-      // Save current state for backtracking
-      const originalScheduledCount = course.scheduledCount
-      const originalWorkloads: { [entityId: string]: { [day: string]: number } } = {}
-      const originalTimetables: { [entityId: string]: any } = {}
-
-      for (const entityId of allEntityIds) {
-        const entity = data.allEntities[entityId]
-        if (entity) {
-          originalWorkloads[entityId] = { ...entity.workload.currentWorkload }
-          // Deep copy the timetable for this day
-          originalTimetables[entityId] = {
-            ...entity.timetable,
-            [day]: [...(entity.timetable[day] || [])]
-          }
-        }
-      }
-
-      // Apply the scheduling
-      course.scheduledCount += 1
-      allScheduledSlots.push(newSlot)
-
-      // Update workloads AND timetables
-      for (const entityId of allEntityIds) {
-        const entity = data.allEntities[entityId]
-        if (entity) {
-          // Update workload
-          entity.workload.currentWorkload[day] += duration
-
-          // Add slot to entity's timetable
-          if (!entity.timetable[day]) {
-            entity.timetable[day] = []
-          }
-
-          // Create timetable slot format
-          const timetableSlot = {
-            type: newSlot.type,
-            startHour: newSlot.startHour,
-            startMinute: newSlot.startMinute,
-            duration: newSlot.duration,
-            courseId: newSlot.courseId,
-            courseCode: newSlot.courseCode,
-            hallIds: newSlot.hallIds || [],
-            facultyIds: newSlot.facultyIds || [],
-            hallGroupIds: newSlot.hallGroupIds || [],
-            facultyGroupIds: newSlot.facultyGroupIds || [],
-            studentIds: newSlot.studentIds || [],
-            studentGroupIds: newSlot.studentGroupIds || []
-          }
-
-          entity.timetable[day].push(timetableSlot)
-
-          // Sort slots by start time
-          entity.timetable[day].sort((a: any, b: any) => {
-            const aTime = a.startHour * 60 + a.startMinute
-            const bTime = b.startHour * 60 + b.startMinute
-            return aTime - bTime
-          })
-        }
-      }
-
+    // Log course options summary
+    let totalWithinWorkload = 0
+    let totalNewDays = 0
+    let totalRequiredSessions = 0
+    let totalAvailableSlots = 0
+    
+    for (const course of currentUnscheduledCourses) {
+      const options = courseOptionsMap.get(course.courseId) || []
       const target = course.targetSessions ?? course.totalSessions
-      console.log(`✅ Scheduled ${course.courseCode} (${course.scheduledCount}/${target}${course.targetSessions ? ` of ${course.totalSessions} total` : ''}) on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')}`)
+      const remainingSessions = target - course.scheduledCount
+      
+      const withinWorkloadCount = options.filter(opt => opt.withinWorkload).length
+      const newDayCount = options.filter(opt => opt.isNewDay).length
+      
+      totalWithinWorkload += withinWorkloadCount
+      totalNewDays += newDayCount
+      totalRequiredSessions += remainingSessions
+      totalAvailableSlots += options.length
+    }
 
-      // Recursively try to schedule remaining courses
-      if (scheduleRecursively()) {
-        return true // Success path
-      }
+    console.log(`🎲 Shuffled ${shuffledCourses.length} courses for randomness`)
+    console.log(`🔍 Scheduling capacity: ${totalAvailableSlots} slots available for ${totalRequiredSessions} required sessions`)
+    console.log(`📊 Options breakdown: ${totalWithinWorkload} within workload, ${totalNewDays} new days available`)
 
-      // Backtrack: undo the changes
-      console.log(`🔄 Backtracking from ${course.courseCode} on ${day}`)
-      course.scheduledCount = originalScheduledCount
-      allScheduledSlots.pop()
+    // Try each shuffled course
+    for (const course of shuffledCourses) {
+      const options = courseOptionsMap.get(course.courseId) || []
 
-      // Restore workloads AND timetables
-      for (const entityId of allEntityIds) {
-        const entity = data.allEntities[entityId]
-        if (entity) {
-          // Restore workload
-          if (originalWorkloads[entityId]) {
-            entity.workload.currentWorkload = originalWorkloads[entityId]
-          }
-          // Restore timetable
-          if (originalTimetables[entityId]) {
-            entity.timetable = originalTimetables[entityId]
+      console.log(`📚 Trying course ${course.courseCode} with ${options.length} possible slots`)
+
+      // Try each sorted option for this course
+      for (const option of options) {
+        const { day, startHour, startMinute, duration, isNewDay, withinWorkload } = option
+
+        const dayIndicator = isNewDay ? '🆕' : '🔄'
+        const workloadIndicator = withinWorkload ? '✅' : '⚠️'
+        console.log(`⏰ Trying ${course.courseCode} on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')} ${dayIndicator}${isNewDay ? ' (new day)' : ' (repeat day)'} ${workloadIndicator}${withinWorkload ? ' (within workload)' : ' (exceeds workload)'}`)
+
+        // Create the slot
+        const newSlot = {
+          type: 'course' as const,
+          startHour,
+          startMinute,
+          duration,
+          courseId: course.courseId,
+          courseCode: course.courseCode,
+          studentIds: course.studentIds,
+          facultyIds: course.facultyIds,
+          hallIds: course.hallIds,
+          studentGroupIds: course.studentGroupIds,
+          facultyGroupIds: course.facultyGroupIds,
+          hallGroupIds: course.hallGroupIds,
+          day
+        }
+
+        // Get all entity IDs for this course
+        const allEntityIds = [
+          ...course.studentIds,
+          ...course.facultyIds,
+          ...course.hallIds,
+          ...course.studentGroupIds,
+          ...course.facultyGroupIds,
+          ...course.hallGroupIds
+        ]
+
+        // Save current state for backtracking
+        const originalScheduledCount = course.scheduledCount
+        const originalWorkloads: { [entityId: string]: { [day: string]: number } } = {}
+        const originalTimetables: { [entityId: string]: any } = {}
+
+        for (const entityId of allEntityIds) {
+          const entity = data.allEntities[entityId]
+          if (entity) {
+            originalWorkloads[entityId] = { ...entity.workload.currentWorkload }
+            // Deep copy the timetable for this day
+            originalTimetables[entityId] = {
+              ...entity.timetable,
+              [day]: [...(entity.timetable[day] || [])]
+            }
           }
         }
+
+        // Apply the scheduling
+        course.scheduledCount += 1
+        allScheduledSlots.push(newSlot)
+
+        // Update workloads AND timetables
+        for (const entityId of allEntityIds) {
+          const entity = data.allEntities[entityId]
+          if (entity) {
+            // Update workload
+            entity.workload.currentWorkload[day] += duration
+
+            // Add slot to entity's timetable
+            if (!entity.timetable[day]) {
+              entity.timetable[day] = []
+            }
+
+            // Create timetable slot format
+            const timetableSlot = {
+              type: newSlot.type,
+              startHour: newSlot.startHour,
+              startMinute: newSlot.startMinute,
+              duration: newSlot.duration,
+              courseId: newSlot.courseId,
+              courseCode: newSlot.courseCode,
+              hallIds: newSlot.hallIds || [],
+              facultyIds: newSlot.facultyIds || [],
+              hallGroupIds: newSlot.hallGroupIds || [],
+              facultyGroupIds: newSlot.facultyGroupIds || [],
+              studentIds: newSlot.studentIds || [],
+              studentGroupIds: newSlot.studentGroupIds || []
+            }
+
+            entity.timetable[day].push(timetableSlot)
+
+            // Sort slots by start time
+            entity.timetable[day].sort((a: any, b: any) => {
+              const aTime = a.startHour * 60 + a.startMinute
+              const bTime = b.startHour * 60 + b.startMinute
+              return aTime - bTime
+            })
+          }
+        }
+
+        const target = course.targetSessions ?? course.totalSessions
+        console.log(`✅ Scheduled ${course.courseCode} (${course.scheduledCount}/${target}${course.targetSessions ? ` of ${course.totalSessions} total` : ''}) on ${day} at ${startHour}:${startMinute.toString().padStart(2, '0')}`)
+
+        // Recursively try to schedule remaining courses
+        if (scheduleRecursively()) {
+          return true // Success path
+        }
+
+        // Backtrack: undo the changes
+        console.log(`🔄 Backtracking from ${course.courseCode} on ${day}`)
+        course.scheduledCount = originalScheduledCount
+        allScheduledSlots.pop()
+
+        // Restore workloads AND timetables
+        for (const entityId of allEntityIds) {
+          const entity = data.allEntities[entityId]
+          if (entity) {
+            // Restore workload
+            if (originalWorkloads[entityId]) {
+              entity.workload.currentWorkload = originalWorkloads[entityId]
+            }
+            // Restore timetable
+            if (originalTimetables[entityId]) {
+              entity.timetable = originalTimetables[entityId]
+            }
+          }
+        }
+
       }
+
+      // If we get here, this course couldn't be scheduled with any of its options
+      console.log(`❌ Could not schedule ${course.courseCode} with any available slots`)
     }
 
     return false // No valid scheduling found
