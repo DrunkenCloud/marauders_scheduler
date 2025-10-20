@@ -1,0 +1,7 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "pnpm install && prisma generate",
+  "env": {
+    "PRISMA_GENERATE_SKIP_AUTOINSTALL": "true"
+  }
+}
