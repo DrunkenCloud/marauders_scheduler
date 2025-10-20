@@ -113,10 +113,16 @@ export async function POST(request: NextRequest) {
 
       const studentIdMap = new Map<string, string>()
       for (const student of sourceStudents) {
+        // Generate a new unique digitalId by adding a large offset
+        const newDigitalId = student.digitalId + 1000000
         const newStudent = await tx.student.create({
           data: {
-            digitalId: student.digitalId,
+            digitalId: newDigitalId,
             timetable: student.timetable as any,
+            startHour: student.startHour,
+            startMinute: student.startMinute,
+            endHour: student.endHour,
+            endMinute: student.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -138,6 +144,10 @@ export async function POST(request: NextRequest) {
             name: faculty.name,
             shortForm: faculty.shortForm,
             timetable: faculty.timetable as any,
+            startHour: faculty.startHour,
+            startMinute: faculty.startMinute,
+            endHour: faculty.endHour,
+            endMinute: faculty.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -161,6 +171,10 @@ export async function POST(request: NextRequest) {
             Building: hall.Building,
             shortForm: hall.shortForm,
             timetable: hall.timetable as any,
+            startHour: hall.startHour,
+            startMinute: hall.startMinute,
+            endHour: hall.endHour,
+            endMinute: hall.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -178,14 +192,17 @@ export async function POST(request: NextRequest) {
 
       const courseIdMap = new Map<string, string>()
       for (const course of sourceCourses) {
+        // Generate a unique course code by appending timestamp suffix
+        const newCourseCode = `${course.code}_${Date.now()}`
         const newCourse = await tx.course.create({
           data: {
             name: course.name,
-            code: course.code,
+            code: newCourseCode,
             timetable: course.timetable as any,
             classDuration: course.classDuration,
             sessionsPerLecture: course.sessionsPerLecture,
             totalSessions: course.totalSessions,
+            scheduledCount: course.scheduledCount,
             sessionId: targetSessionId
           }
         })
@@ -232,10 +249,16 @@ export async function POST(request: NextRequest) {
 
       const studentGroupIdMap = new Map<string, string>()
       for (const group of sourceStudentGroups) {
+        // Generate a unique group name by appending timestamp
+        const newGroupName = `${group.groupName} (Copy ${Date.now()})`
         const newGroup = await tx.studentGroup.create({
           data: {
-            groupName: group.groupName,
+            groupName: newGroupName,
             timetable: group.timetable as any,
+            startHour: group.startHour,
+            startMinute: group.startMinute,
+            endHour: group.endHour,
+            endMinute: group.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -265,10 +288,16 @@ export async function POST(request: NextRequest) {
 
       const facultyGroupIdMap = new Map<string, string>()
       for (const group of sourceFacultyGroups) {
+        // Generate a unique group name by appending timestamp
+        const newGroupName = `${group.groupName} (Copy ${Date.now()})`
         const newGroup = await tx.facultyGroup.create({
           data: {
-            groupName: group.groupName,
+            groupName: newGroupName,
             timetable: group.timetable as any,
+            startHour: group.startHour,
+            startMinute: group.startMinute,
+            endHour: group.endHour,
+            endMinute: group.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -297,10 +326,16 @@ export async function POST(request: NextRequest) {
       })
 
       for (const group of sourceHallGroups) {
+        // Generate a unique group name by appending timestamp
+        const newGroupName = `${group.groupName} (Copy ${Date.now()})`
         const newGroup = await tx.hallGroup.create({
           data: {
-            groupName: group.groupName,
+            groupName: newGroupName,
             timetable: group.timetable as any,
+            startHour: group.startHour,
+            startMinute: group.startMinute,
+            endHour: group.endHour,
+            endMinute: group.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -334,6 +369,26 @@ export async function POST(request: NextRequest) {
               })
             }
           }
+        }
+      }
+
+      // Copy course student group enrollments
+      const sourceCourseGroupEnrollments = await tx.courseStudentGroupEnrollment.findMany({
+        where: {
+          course: { sessionId: sourceSessionId }
+        }
+      })
+
+      for (const enrollment of sourceCourseGroupEnrollments) {
+        const newCourseId = courseIdMap.get(enrollment.courseId)
+        const newStudentGroupId = studentGroupIdMap.get(enrollment.studentGroupId)
+        if (newCourseId && newStudentGroupId) {
+          await tx.courseStudentGroupEnrollment.create({
+            data: {
+              courseId: newCourseId,
+              studentGroupId: newStudentGroupId
+            }
+          })
         }
       }
     })

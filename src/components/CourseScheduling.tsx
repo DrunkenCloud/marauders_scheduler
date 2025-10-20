@@ -298,10 +298,10 @@ export default function CourseScheduling() {
                     <div
                       key={course.id}
                       className={`border rounded-lg p-4 transition-colors ${isFullyScheduled
-                          ? 'border-gray-200 bg-gray-50 opacity-60'
-                          : isSelected
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-gray-200 bg-gray-50 opacity-60'
+                        : isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
                         }`}
                     >
                       <div className="flex items-start justify-between">
@@ -515,18 +515,23 @@ export default function CourseScheduling() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {scheduledSlots
                       .sort((a, b) => {
+                        // First sort by day (Monday to Friday)
                         const dayOrder = { 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4 }
                         const dayDiff = (dayOrder[a.day as keyof typeof dayOrder] || 5) - (dayOrder[b.day as keyof typeof dayOrder] || 5)
                         if (dayDiff !== 0) return dayDiff
 
+                        // Then sort by time (hour and minute)
                         const aTime = a.startHour * 60 + a.startMinute
                         const bTime = b.startHour * 60 + b.startMinute
-                        return aTime - bTime
+                        if (aTime !== bTime) return aTime - bTime
+
+                        // Finally sort by course code for consistency
+                        return (a.courseCode || '').localeCompare(b.courseCode || '')
                       })
                       .map((slot, index) => {
-                        const startTime = `${slot.startHour}:${slot.startMinute.toString().padStart(2, '0')}`
+                        const startTime = `${slot.startHour.toString().padStart(2, '0')}:${slot.startMinute.toString().padStart(2, '0')}`
                         const endMinutes = slot.startHour * 60 + slot.startMinute + slot.duration
-                        const endTime = `${Math.floor(endMinutes / 60)}:${(endMinutes % 60).toString().padStart(2, '0')}`
+                        const endTime = `${Math.floor(endMinutes / 60).toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`
 
                         const totalEntities = (slot.studentIds?.length || 0) +
                           (slot.facultyIds?.length || 0) +
@@ -535,16 +540,21 @@ export default function CourseScheduling() {
                           (slot.facultyGroupIds?.length || 0) +
                           (slot.hallGroupIds?.length || 0)
 
+                        // Check if this is the first slot of a new day
+                        const isFirstOfDay = index === 0 || scheduledSlots[index - 1]?.day !== slot.day
+
                         return (
-                          <tr key={index} className="hover:bg-gray-50">
+                          <tr key={index} className={`hover:bg-gray-50 ${isFirstOfDay && index > 0 ? 'border-t-2 border-gray-300' : ''}`}>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="text-sm font-medium text-gray-900">{slot.courseCode}</div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{slot.day}</div>
+                              <div className={`text-sm ${isFirstOfDay ? 'font-semibold text-blue-700' : 'text-gray-900'}`}>
+                                {slot.day}
+                              </div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{startTime} - {endTime}</div>
+                              <div className="text-sm text-gray-900 font-mono">{startTime} - {endTime}</div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="text-sm text-gray-900">{slot.duration} min</div>
