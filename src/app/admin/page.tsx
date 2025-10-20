@@ -146,7 +146,7 @@ export default function AdminPage() {
                   Quick statistics for session: {currentSession.name}
                 </p>
               </div>
-              {/* <StatsCards /> */}
+              <StatsCards />
             </div>
           )}
 
