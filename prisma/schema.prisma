@@ -25,7 +25,7 @@ model Session {
 
 model Student {
   id            String    @id @default(uuid())
-  digitalId     Int       @unique
+  digitalId     Int
   timetable     Json
   startHour     Int       @default(8)   // working day start hour (0-23)
   startMinute   Int       @default(10)  // working day start minute (0-59)
@@ -42,7 +42,7 @@ model Student {
 
 model StudentGroup {
   id            String    @id @default(uuid())
-  groupName     String    @unique
+  groupName     String
   timetable     Json
   startHour     Int       @default(8)   // working day start hour (0-23)
   startMinute   Int       @default(10)  // working day start minute (0-59)
@@ -66,8 +66,6 @@ model StudentGroupMembership {
 
   student        Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
   studentGroup   StudentGroup @relation(fields: [studentGroupId], references: [id], onDelete: Cascade)
-
-  @@unique([studentId, studentGroupId])
 }
 
 model Faculty {
@@ -90,7 +88,7 @@ model Faculty {
 
 model FacultyGroup {
   id            String    @id @default(uuid())
-  groupName     String    @unique
+  groupName     String
   timetable     Json
   startHour     Int       @default(8)   // working day start hour (0-23)
   startMinute   Int       @default(10)  // working day start minute (0-59)
@@ -114,8 +112,6 @@ model FacultyGroupMembership {
 
   faculty        Faculty      @relation(fields: [facultyId], references: [id], onDelete: Cascade)
   facultyGroup   FacultyGroup @relation(fields: [facultyGroupId], references: [id], onDelete: Cascade)
-
-  @@unique([facultyId, facultyGroupId])
 }
 
 model Hall {
@@ -140,7 +136,7 @@ model Hall {
 
 model HallGroup {
   id            String    @id @default(uuid())
-  groupName     String    @unique
+  groupName     String
   timetable     Json
   startHour     Int       @default(8)   // availability start hour (0-23)
   startMinute   Int       @default(10)  // availability start minute (0-59)
@@ -164,14 +160,12 @@ model HallGroupMembership {
 
   hall        Hall      @relation(fields: [hallId], references: [id], onDelete: Cascade)
   hallGroup   HallGroup @relation(fields: [hallGroupId], references: [id], onDelete: Cascade)
-
-  @@unique([hallId, hallGroupId])
 }
 
 model Course {
   id                      String                @id @default(uuid())
   name                    String
-  code                    String                @unique
+  code                    String
   timetable               Json
   classDuration           Int                   @default(50)        // minutes per session
   sessionsPerLecture      Int                   @default(1)         // consecutive sessions needed
@@ -199,8 +193,6 @@ model CompulsoryFacultyGroup {
 
   course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
   facultyGroup   FacultyGroup @relation(fields: [facultyGroupId], references: [id], onDelete: Cascade)
-
-  @@unique([courseId, facultyGroupId])
 }
 
 model CompulsoryHallGroup {
@@ -212,8 +204,6 @@ model CompulsoryHallGroup {
 
   course        Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
   hallGroup     HallGroup @relation(fields: [hallGroupId], references: [id], onDelete: Cascade)
-
-  @@unique([courseId, hallGroupId])
 }
 
 model CourseStudentEnrollment {
@@ -225,8 +215,6 @@ model CourseStudentEnrollment {
 
   course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
   student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-
-  @@unique([courseId, studentId])
 }
 
 model CourseStudentGroupEnrollment {
@@ -238,8 +226,6 @@ model CourseStudentGroupEnrollment {
 
   course         Course       @relation(fields: [courseId], references: [id], onDelete: Cascade)
   studentGroup   StudentGroup @relation(fields: [studentGroupId], references: [id], onDelete: Cascade)
-
-  @@unique([courseId, studentGroupId])
 }
 
 // Example timetable JSON (TimetableSlot format)

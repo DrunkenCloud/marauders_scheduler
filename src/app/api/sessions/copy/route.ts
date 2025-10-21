@@ -114,10 +114,9 @@ export async function POST(request: NextRequest) {
       const studentIdMap = new Map<string, string>()
       for (const student of sourceStudents) {
         // Generate a new unique digitalId by adding a large offset
-        const newDigitalId = student.digitalId + 1000000
         const newStudent = await tx.student.create({
           data: {
-            digitalId: newDigitalId,
+            digitalId: student.digitalId,
             timetable: student.timetable as any,
             startHour: student.startHour,
             startMinute: student.startMinute,
@@ -193,11 +192,10 @@ export async function POST(request: NextRequest) {
       const courseIdMap = new Map<string, string>()
       for (const course of sourceCourses) {
         // Generate a unique course code by appending timestamp suffix
-        const newCourseCode = `${course.code}_${Date.now()}`
         const newCourse = await tx.course.create({
           data: {
             name: course.name,
-            code: newCourseCode,
+            code: course.code,
             timetable: course.timetable as any,
             classDuration: course.classDuration,
             sessionsPerLecture: course.sessionsPerLecture,
@@ -250,10 +248,9 @@ export async function POST(request: NextRequest) {
       const studentGroupIdMap = new Map<string, string>()
       for (const group of sourceStudentGroups) {
         // Generate a unique group name by appending timestamp
-        const newGroupName = `${group.groupName} (Copy ${Date.now()})`
         const newGroup = await tx.studentGroup.create({
           data: {
-            groupName: newGroupName,
+            groupName: group.groupName,
             timetable: group.timetable as any,
             startHour: group.startHour,
             startMinute: group.startMinute,
@@ -289,10 +286,9 @@ export async function POST(request: NextRequest) {
       const facultyGroupIdMap = new Map<string, string>()
       for (const group of sourceFacultyGroups) {
         // Generate a unique group name by appending timestamp
-        const newGroupName = `${group.groupName} (Copy ${Date.now()})`
         const newGroup = await tx.facultyGroup.create({
           data: {
-            groupName: newGroupName,
+            groupName: group.groupName,
             timetable: group.timetable as any,
             startHour: group.startHour,
             startMinute: group.startMinute,
@@ -327,10 +323,9 @@ export async function POST(request: NextRequest) {
 
       for (const group of sourceHallGroups) {
         // Generate a unique group name by appending timestamp
-        const newGroupName = `${group.groupName} (Copy ${Date.now()})`
         const newGroup = await tx.hallGroup.create({
           data: {
-            groupName: newGroupName,
+            groupName: group.groupName,
             timetable: group.timetable as any,
             startHour: group.startHour,
             startMinute: group.startMinute,
