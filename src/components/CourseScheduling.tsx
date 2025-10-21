@@ -43,64 +43,64 @@ export default function CourseScheduling() {
     loadCourses()
   }, [currentSession])
 
-  const handleCourseToggle = (courseId: string) => {
-    setSelectedCourses(prev => {
-      const isCurrentlySelected = prev.includes(courseId)
-
-      if (isCurrentlySelected) {
-        // Remove from selection and config
-        const newConfigs = { ...courseConfigs }
-        delete newConfigs[courseId]
-        setCourseConfigs(newConfigs)
-        return prev.filter(id => id !== courseId)
-      } else {
-        // Add to selection and initialize config
-        const course = courses.find(c => c.id === courseId)
-        if (course) {
-          const remainingSessions = course.totalSessions - (course.scheduledCount || 0)
-          setCourseConfigs(prev => ({
-            ...prev,
-            [courseId]: {
-              courseId,
-              sessionsToSchedule: Math.min(1, remainingSessions)
-            }
-          }))
-        }
-        return [...prev, courseId]
-      }
-    })
-  }
-
   const handleSessionsChange = (courseId: string, sessions: number) => {
-    setCourseConfigs(prev => ({
-      ...prev,
-      [courseId]: {
-        ...prev[courseId],
-        sessionsToSchedule: sessions
-      }
-    }))
+    const course = courses.find(c => c.id === courseId)
+    if (!course) return
+
+    const remainingSessions = course.totalSessions - (course.scheduledCount || 0)
+    const validSessions = Math.max(0, Math.min(sessions, remainingSessions))
+
+    if (validSessions === 0) {
+      // Remove from selection and config
+      setSelectedCourses(prev => prev.filter(id => id !== courseId))
+      setCourseConfigs(prev => {
+        const newConfigs = { ...prev }
+        delete newConfigs[courseId]
+        return newConfigs
+      })
+    } else {
+      // Add to selection and update config
+      setSelectedCourses(prev => {
+        if (prev.includes(courseId)) return prev
+        return [...prev, courseId]
+      })
+      setCourseConfigs(prev => ({
+        ...prev,
+        [courseId]: {
+          courseId,
+          sessionsToSchedule: validSessions
+        }
+      }))
+    }
   }
+
 
   const handleSelectAll = () => {
-    if (selectedCourses.length === courses.length) {
+    const availableCourses = courses.filter(course => {
+      const remainingSessions = course.totalSessions - (course.scheduledCount || 0)
+      return remainingSessions > 0
+    })
+
+    if (selectedCourses.length === availableCourses.length) {
+      // Deselect all
       setSelectedCourses([])
       setCourseConfigs({})
     } else {
+      // Select all available courses with 1 session each
       const newConfigs: { [courseId: string]: CourseSchedulingConfig } = {}
-      courses.forEach(course => {
+      const newSelectedCourses: string[] = []
+      
+      availableCourses.forEach(course => {
         const remainingSessions = course.totalSessions - (course.scheduledCount || 0)
-        if (remainingSessions > 0) {
-          newConfigs[course.id] = {
-            courseId: course.id,
-            sessionsToSchedule: Math.min(1, remainingSessions)
-          }
+        newConfigs[course.id] = {
+          courseId: course.id,
+          sessionsToSchedule: Math.min(1, remainingSessions)
         }
+        newSelectedCourses.push(course.id)
       })
+      
       setCourseConfigs(newConfigs)
-      setSelectedCourses(courses.filter(course => {
-        const remainingSessions = course.totalSessions - (course.scheduledCount || 0)
-        return remainingSessions > 0
-      }).map(course => course.id))
+      setSelectedCourses(newSelectedCourses)
     }
   }
 
@@ -267,7 +267,10 @@ export default function CourseScheduling() {
                 onClick={handleSelectAll}
                 className="text-sm text-blue-600 hover:text-blue-800"
               >
-                {selectedCourses.length === courses.length ? 'Deselect All' : 'Select All'}
+                {selectedCourses.length === courses.filter(course => {
+                  const remainingSessions = course.totalSessions - (course.scheduledCount || 0)
+                  return remainingSessions > 0
+                }).length ? 'Deselect All' : 'Select All'}
               </button>
             </div>
           </div>
@@ -305,58 +308,48 @@ export default function CourseScheduling() {
                         }`}
                     >
                       <div className="flex items-start justify-between">
-                        <div className="flex items-start space-x-3">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={isFullyScheduled}
-                            onChange={() => handleCourseToggle(course.id)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1 disabled:opacity-50"
-                          />
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <h3 className="font-medium text-gray-900">{course.code}</h3>
-                              {isFullyScheduled && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                  Fully Scheduled
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600 mb-2">{course.name}</p>
-
-                            {/* Session Slider - Only show when selected */}
-                            {isSelected && !isFullyScheduled && (
-                              <div className="mt-3 p-3 bg-white rounded border">
-                                <div className="flex items-center justify-between mb-2">
-                                  <label className="text-sm font-medium text-gray-700">
-                                    Sessions to schedule:
-                                  </label>
-                                  <span className="text-sm font-semibold text-blue-600">
-                                    {config?.sessionsToSchedule || 0} of {remainingSessions} remaining
-                                  </span>
-                                </div>
-                                <div className="flex items-center space-x-3">
-                                  <span className="text-xs text-gray-500">1</span>
-                                  <input
-                                    type="range"
-                                    min="1"
-                                    max={remainingSessions}
-                                    value={config?.sessionsToSchedule || 1}
-                                    onChange={(e) => handleSessionsChange(course.id, parseInt(e.target.value))}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
-                                    style={{
-                                      background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((config?.sessionsToSchedule || 1) / remainingSessions) * 100}%, #e5e7eb ${((config?.sessionsToSchedule || 1) / remainingSessions) * 100}%, #e5e7eb 100%)`
-                                    }}
-                                  />
-                                  <span className="text-xs text-gray-500">{remainingSessions}</span>
-                                </div>
-                                <div className="mt-2 text-xs text-gray-500">
-                                  Total duration: {((config?.sessionsToSchedule || 0) * course.classDuration)} minutes
-                                </div>
-                              </div>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="font-medium text-gray-900">{course.code}</h3>
+                            {isFullyScheduled && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                Fully Scheduled
+                              </span>
                             )}
                           </div>
+                          <p className="text-sm text-gray-600 mb-3">{course.name}</p>
+
+                          {/* Session Slider - Always show for non-fully scheduled courses */}
+                          {!isFullyScheduled && (
+                            <div className="p-3 bg-white rounded border">
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                  Sessions to schedule:
+                                </label>
+                                <span className="text-sm font-semibold text-blue-600">
+                                  {config?.sessionsToSchedule || 0} of {remainingSessions} remaining
+                                </span>
+                              </div>
+                              <div className="flex items-center space-x-3">
+                                <span className="text-xs text-gray-500">0</span>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max={remainingSessions}
+                                  value={config?.sessionsToSchedule || 0}
+                                  onChange={(e) => handleSessionsChange(course.id, parseInt(e.target.value))}
+                                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider"
+                                  style={{
+                                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${((config?.sessionsToSchedule || 0) / remainingSessions) * 100}%, #e5e7eb ${((config?.sessionsToSchedule || 0) / remainingSessions) * 100}%, #e5e7eb 100%)`
+                                  }}
+                                />
+                                <span className="text-xs text-gray-500">{remainingSessions}</span>
+                              </div>
+                              <div className="mt-2 text-xs text-gray-500">
+                                Total duration: {((config?.sessionsToSchedule || 0) * course.classDuration)} minutes
+                              </div>
+                            </div>
+                          )}
                         </div>
                         <div className="text-right">
                           <div className="text-sm font-medium text-gray-900">
@@ -518,12 +511,15 @@ export default function CourseScheduling() {
                         // First sort by day (Monday to Friday)
                         const dayOrder = { 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4 }
                         const dayDiff = (dayOrder[a.day as keyof typeof dayOrder] || 5) - (dayOrder[b.day as keyof typeof dayOrder] || 5)
-                        if (dayDiff !== 0) return dayDiff
+                        if (dayDiff <= 0) return 0;
 
                         // Then sort by time (hour and minute)
                         const aTime = a.startHour * 60 + a.startMinute
                         const bTime = b.startHour * 60 + b.startMinute
                         if (aTime !== bTime) return aTime - bTime
+
+                        // Then sort by duration (longer sessions first)
+                        if (a.duration !== b.duration) return b.duration - a.duration
 
                         // Finally sort by course code for consistency
                         return (a.courseCode || '').localeCompare(b.courseCode || '')
