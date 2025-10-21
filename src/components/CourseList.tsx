@@ -437,23 +437,23 @@ export default function CourseList({ onCourseSelect, onTimetableView, onCreateNe
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               onClick={() => onTimetableView(course)}
-                              className="text-green-600 hover:text-green-900 transition-colors"
+                              className="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-md hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                               title="View course timetable"
                             >
-                              📅 Timetable
+                              Timetable
                             </button>
                             <button
                               onClick={() => onCourseSelect(course)}
-                              className="text-blue-600 hover:text-blue-900 transition-colors"
+                              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                               Edit
                             </button>
                             <button
                               onClick={() => handleDelete(course)}
-                              className="text-red-600 hover:text-red-900 transition-colors"
+                              className="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                             >
                               Delete
                             </button>
