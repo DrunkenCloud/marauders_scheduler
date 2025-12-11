@@ -271,7 +271,7 @@ export default function ImportExportPage() {
           ) : (
             <div className="bg-red-50 border border-red-300 rounded-md p-4">
               <p className="text-red-900 font-semibold mb-3">
-                Are you sure you want to clear all data from "{currentSession?.name}"?
+                Are you sure you want to clear all data from &quot;{currentSession?.name}&quot;?
               </p>
               <p className="text-sm text-red-700 mb-4">
                 This will permanently delete all students, faculty, halls, courses, and their relationships. This action cannot be undone.
