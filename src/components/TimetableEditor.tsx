@@ -1009,100 +1009,109 @@ export default function TimetableEditor({
 
         {/* Timeline Container - Scrollable */}
         <div className="border border-gray-300 rounded-lg overflow-hidden">
-          {/* Time Markers Header */}
-          <div className="bg-gray-50 border-b border-gray-300 relative overflow-x-auto" style={{ height: '40px' }}>
-            <div className="flex items-center h-full" style={{ minWidth: timelineWidth + 96 }}>
-              <div className="w-24 px-4 text-sm font-medium text-gray-900 border-r border-gray-300 bg-gray-50 sticky left-0 z-10">
-                Time
-              </div>
-              <div className="relative" style={{ width: timelineWidth }}>
-                {timeMarkers.map((marker, index) => (
-                  <div
-                    key={index}
-                    className="absolute top-0 h-full flex flex-col justify-center border-l border-gray-300"
-                    style={{ left: marker.position }}
-                  >
-                    <div className="text-xs text-gray-600 ml-1">{marker.time}</div>
-                  </div>
-                ))}
+          {/* Single Scrollable Container for Both Header and Content */}
+          <div 
+            className="overflow-x-auto overflow-y-auto" 
+            style={{ maxHeight: '640px' }}
+            onScroll={(e) => {
+              // Sync scroll is automatic since both are in the same container
+            }}
+          >
+            {/* Time Markers Header - Sticky */}
+            <div className="bg-gray-50 border-b border-gray-300 relative sticky top-0 z-20" style={{ height: '40px' }}>
+              <div className="flex items-center h-full" style={{ minWidth: timelineWidth + 96 }}>
+                <div className="w-24 px-4 text-sm font-medium text-gray-900 border-r border-gray-300 bg-gray-50 sticky left-0 z-30">
+                  Time
+                </div>
+                <div className="relative" style={{ width: timelineWidth }}>
+                  {timeMarkers.map((marker, index) => (
+                    <div
+                      key={index}
+                      className="absolute top-0 h-full flex flex-col justify-center border-l border-gray-300"
+                      style={{ left: marker.position }}
+                    >
+                      <div className="text-xs text-gray-600 ml-1">{marker.time}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Days Timeline - Scrollable */}
-          <div className="divide-y divide-gray-200 overflow-x-auto" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-            {DAYS_OF_WEEK.map(day => {
-              const daySlots = timetable.schedule[day] || []
+            {/* Days Timeline */}
+            <div className="divide-y divide-gray-200">
+              {DAYS_OF_WEEK.map(day => {
+                const daySlots = timetable.schedule[day] || []
 
-              return (
-                <div key={day} className="flex items-center" style={{ height: '80px', minWidth: timelineWidth + 96 }}>
-                  {/* Day Label */}
-                  <div className="w-24 px-4 text-sm font-medium text-gray-900 border-r border-gray-300 bg-gray-50 sticky left-0 z-10">
-                    {day}
-                  </div>
+                return (
+                  <div key={day} className="flex items-center" style={{ height: '80px', minWidth: timelineWidth + 96 }}>
+                    {/* Day Label */}
+                    <div className="w-24 px-4 text-sm font-medium text-gray-900 border-r border-gray-300 bg-gray-50 sticky left-0 z-10">
+                      {day}
+                    </div>
 
-                  {/* Timeline Track */}
-                  <div
-                    className="relative h-full bg-gray-50 cursor-pointer"
-                    style={{ width: timelineWidth }}
-                    onClick={(e) => handleTimelineClick(day, e)}
-                  >
-                    {/* Background grid lines */}
-                    {timeMarkers.map((marker, index) => (
-                      <div
-                        key={index}
-                        className="absolute top-0 h-full border-l border-gray-200"
-                        style={{ left: marker.position }}
-                      />
-                    ))}
-
-                    {/* Slots */}
-                    {daySlots.map((slot, slotIndex) => {
-                      if (typeof slot !== 'object' || !('type' in slot)) return null
-
-                      const tSlot = slot as TimetableSlot
-                      const { left, width } = getSlotPosition(tSlot)
-                      const isSelected = selectedSlot?.day === day && selectedSlot?.slotIndex === slotIndex
-
-                      return (
+                    {/* Timeline Track */}
+                    <div
+                      className="relative h-full bg-gray-50 cursor-pointer"
+                      style={{ width: timelineWidth }}
+                      onClick={(e) => handleTimelineClick(day, e)}
+                    >
+                      {/* Background grid lines */}
+                      {timeMarkers.map((marker, index) => (
                         <div
-                          key={slotIndex}
-                          className={`absolute top-2 bottom-2 rounded border-2 cursor-pointer transition-all group ${isSelected ? 'ring-2 ring-blue-500' : ''
-                            } ${getSlotColor(tSlot)}`}
-                          style={{ left, width }}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleSlotClick(day, slotIndex)
-                          }}
-                        >
-                          {/* Slot Content */}
-                          <div className="h-full flex items-center justify-center px-2 text-xs font-medium text-gray-800 overflow-hidden">
-                            <div className="truncate">
-                              {tSlot.type === 'course'
-                                ? (tSlot.courseCode || 'Course')
-                                : (tSlot.blockerReason || 'Blocked')}
-                            </div>
-                          </div>
+                          key={index}
+                          className="absolute top-0 h-full border-l border-gray-200"
+                          style={{ left: marker.position }}
+                        />
+                      ))}
 
-                          {/* Delete button */}
-                          {!readOnly && (
-                            <button
-                              className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={async (e) => {
-                                e.stopPropagation()
-                                await handleSlotDelete(day, slotIndex)
-                              }}
-                            >
-                              ×
-                            </button>
-                          )}
-                        </div>
-                      )
-                    })}
+                      {/* Slots */}
+                      {daySlots.map((slot, slotIndex) => {
+                        if (typeof slot !== 'object' || !('type' in slot)) return null
+
+                        const tSlot = slot as TimetableSlot
+                        const { left, width } = getSlotPosition(tSlot)
+                        const isSelected = selectedSlot?.day === day && selectedSlot?.slotIndex === slotIndex
+
+                        return (
+                          <div
+                            key={slotIndex}
+                            className={`absolute top-2 bottom-2 rounded border-2 cursor-pointer transition-all group ${isSelected ? 'ring-2 ring-blue-500' : ''
+                              } ${getSlotColor(tSlot)}`}
+                            style={{ left, width }}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSlotClick(day, slotIndex)
+                            }}
+                          >
+                            {/* Slot Content */}
+                            <div className="h-full flex items-center justify-center px-2 text-xs font-medium text-gray-800 overflow-hidden">
+                              <div className="truncate">
+                                {tSlot.type === 'course'
+                                  ? (tSlot.courseCode || 'Course')
+                                  : (tSlot.blockerReason || 'Blocked')}
+                              </div>
+                            </div>
+
+                            {/* Delete button */}
+                            {!readOnly && (
+                              <button
+                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  await handleSlotDelete(day, slotIndex)
+                                }}
+                              >
+                                ×
+                              </button>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </div>
       </div>

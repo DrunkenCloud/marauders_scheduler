@@ -23,10 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log the request body for debugging
-    console.log('Schedule All Request received:')
     console.log('Session ID:', sessionId)
-    console.log('Course Configs:', finalCourseConfigs)
-    console.log('Full request body:', JSON.stringify(body, null, 2))
 
     // Validate required fields
     if (!sessionId) {
@@ -74,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const extractedCourseIds = finalCourseConfigs.map(config => config.courseId)
-    const compiled = await compileSchedulingData(sessionId, extractedCourseIds)
+    const compiled = await compileSchedulingData(sessionId, extractedCourseIds);
 
     // Apply session limits to the compiled data
     for (const config of finalCourseConfigs) {
@@ -84,12 +81,6 @@ export async function POST(request: NextRequest) {
         const remainingSessions = course.totalSessions - course.scheduledCount
         course.targetSessions = Math.min(config.sessionsToSchedule, remainingSessions)
       }
-    }
-
-    console.log(`Scheduling compilation complete for ${extractedCourseIds.length} courses in session ${sessionId}`)
-    console.log('Course session targets:', finalCourseConfigs)
-    if (randomSeed !== undefined) {
-      console.log('Random seed provided:', randomSeed)
     }
 
     // Run the scheduling algorithm

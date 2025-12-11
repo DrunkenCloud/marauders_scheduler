@@ -86,7 +86,7 @@ export default function CourseScheduling() {
       setSelectedCourses([])
       setCourseConfigs({})
     } else {
-      // Select all available courses with 1 session each
+      // Select all available courses with maximum remaining sessions
       const newConfigs: { [courseId: string]: CourseSchedulingConfig } = {}
       const newSelectedCourses: string[] = []
       
@@ -94,7 +94,7 @@ export default function CourseScheduling() {
         const remainingSessions = course.totalSessions - (course.scheduledCount || 0)
         newConfigs[course.id] = {
           courseId: course.id,
-          sessionsToSchedule: Math.min(1, remainingSessions)
+          sessionsToSchedule: remainingSessions // Set to max remaining sessions
         }
         newSelectedCourses.push(course.id)
       })
@@ -145,6 +145,7 @@ export default function CourseScheduling() {
       })
 
       const data = await response.json()
+      console.log(JSON.stringify(data, null, 2));
 
       if (data.success) {
         // Store the scheduling results for preview

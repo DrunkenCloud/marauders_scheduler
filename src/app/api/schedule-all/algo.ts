@@ -771,8 +771,6 @@ export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { 
   const actualSeed = seed ?? Math.floor(Math.random() * 1000000)
   const rng = new SeededRandom(actualSeed)
 
-  console.log(`🎲 Using random seed: ${actualSeed} ${seed ? '(provided)' : '(generated)'}`)
-
   function scheduleRecursively(): boolean {
     // Base case: check if all courses have reached their target or are fully scheduled
     const unscheduledCourses = data.courses.filter(course => {
@@ -791,12 +789,12 @@ export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { 
 
     // Get course options map and unscheduled courses
     const { courseOptionsMap, unscheduledCourses: currentUnscheduledCourses } = getCourseSchedulingOptionsMap(data, allScheduledSlots)
-
     // Early exit: check if any course has insufficient slots for remaining sessions
     for (const course of currentUnscheduledCourses) {
       const options = courseOptionsMap.get(course.courseId) || []
       const target = course.targetSessions ?? course.totalSessions
       const remainingSessions = target - course.scheduledCount
+      console.log(course.courseId, options.length, remainingSessions);
 
       if (options.length < remainingSessions) {
         return false
@@ -827,9 +825,10 @@ export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { 
     }
 
     // Try each shuffled course
+    console.log(shuffledCourses);
     for (const course of shuffledCourses) {
       const options = courseOptionsMap.get(course.courseId) || []
-
+      
       // Try each sorted option for this course
       for (const option of options) {
         const { day, startHour, startMinute, duration, isNewDay, withinWorkload } = option

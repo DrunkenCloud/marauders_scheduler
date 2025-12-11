@@ -4,18 +4,20 @@ import { useState } from 'react'
 import { EntityType } from '@/types'
 
 interface SidebarProps {
-  activeEntity: EntityType | null
-  onEntitySelect: (entity: EntityType) => void
+  activeEntity: EntityType | 'import-export' | null
+  onEntitySelect: (entity: EntityType | 'import-export') => void
 }
 
-interface EntityNavItem {
-  type: EntityType
+
+
+interface NavItem {
+  type: EntityType | 'import-export'
   label: string
   icon: string
   description: string
 }
 
-const entityNavItems: EntityNavItem[] = [
+const entityNavItems: NavItem[] = [
   {
     type: EntityType.STUDENT,
     label: 'Students',
@@ -63,6 +65,12 @@ const entityNavItems: EntityNavItem[] = [
     label: 'Schedule Courses',
     icon: '📅',
     description: 'Schedule courses for all involved parties'
+  },
+  {
+    type: 'import-export',
+    label: 'Import / Export',
+    icon: '📥',
+    description: 'Import or export session data'
   }
 ]
 
