@@ -115,28 +115,28 @@ export default function TimetableEditor({
   }, [loadCourses])
 
   // Load available courses based on entity
-  useEffect(() => {
+  const loadAvailableCourses = useCallback(async () => {
     if (!currentSession) return
 
-    const loadAvailableCourses = async () => {
-      setLoadingCourses(true)
-      try {
-        const response = await fetch(`/api/courses/available?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
-        if (response.ok) {
-          const data = await response.json()
-          if (data.success) {
-            setAvailableCourses(data.data.courses || [])
-          }
+    setLoadingCourses(true)
+    try {
+      const response = await fetch(`/api/courses/available?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setAvailableCourses(data.data.courses || [])
         }
-      } catch (error) {
-        console.error('Error loading available courses:', error)
-      } finally {
-        setLoadingCourses(false)
       }
+    } catch (error) {
+      console.error('Error loading available courses:', error)
+    } finally {
+      setLoadingCourses(false)
     }
-
-    loadAvailableCourses()
   }, [currentSession, entityType, entityId])
+
+  useEffect(() => {
+    loadAvailableCourses()
+  }, [loadAvailableCourses])
 
   // Check for conflicts when adding/updating slots
   const checkConflicts = useCallback(async (slot: TimetableSlot, day: string, excludeSlotIndex?: number): Promise<string[]> => {
@@ -191,6 +191,13 @@ export default function TimetableEditor({
 
                 // Check for time overlap
                 if (slotsOverlap(slotStart, slotEnd, existingStart, existingEnd)) {
+                  // Skip if this is the same course (not a real conflict)
+                  if (slot.type === 'course' && existingSlot.type === 'course' && 
+                      slot.courseId && existingSlot.courseId && 
+                      slot.courseId === existingSlot.courseId) {
+                    continue
+                  }
+
                   const entityName = await getEntityName(entity.type, entity.id)
                   const conflictTime = `${formatTime(existingSlot.startHour, existingSlot.startMinute)} - ${formatTime(
                     Math.floor(existingEnd / 60),
@@ -500,6 +507,9 @@ export default function TimetableEditor({
         console.warn('Failed to update course scheduled count, but slot was added to timetable')
       } else {
         console.log('Successfully incremented scheduled count')
+        // Refresh course lists to show updated scheduled counts
+        await loadCourses()
+        await loadAvailableCourses()
       }
     }
 
@@ -803,6 +813,10 @@ export default function TimetableEditor({
       const success = await updateCourseScheduledCount(slotToDelete.courseId, -1)
       if (!success) {
         console.warn('Failed to decrement scheduled count for deleted course')
+      } else {
+        // Refresh course lists to show updated scheduled counts
+        await loadCourses()
+        await loadAvailableCourses()
       }
     }
 
@@ -1182,24 +1196,37 @@ export default function TimetableEditor({
             </div>
           </div>
 
-          {/* Duration */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Duration (minutes)
-            </label>
-            <input
-              type="number"
-              value={editingSlot.duration}
-              onChange={(e) => setEditingSlot({ ...editingSlot, duration: parseInt(e.target.value) || 50 })}
-              min="5"
-              max="300"
-              step="5"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+          {/* Duration - Only show for blockers, courses get duration from course data */}
+          {editingSlot.type === 'blocker' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Duration (minutes)
+              </label>
+              <input
+                type="number"
+                value={editingSlot.duration}
+                onChange={(e) => setEditingSlot({ ...editingSlot, duration: parseInt(e.target.value) || 50 })}
+                min="5"
+                max="300"
+                step="5"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          )}
 
           {editingSlot.type === 'course' && (
             <>
+              {/* Course Duration Display */}
+              {editingSlot.courseId && (
+                <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Course Duration:</span>
+                    <span className="text-sm font-semibold text-gray-900">{editingSlot.duration} minutes</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Duration is set by the course</p>
+                </div>
+              )}
+
               {/* Course Selection */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -1223,7 +1250,7 @@ export default function TimetableEditor({
                       value={editingSlot.courseId || ''}
                       onChange={(e) => {
                         const courseId = e.target.value
-                        const course = courses.find(c => c.id === courseId)
+                        const course = availableCourses.find(c => c.id === courseId)
                         setEditingSlot({
                           ...editingSlot,
                           courseId: courseId || undefined,
@@ -1234,11 +1261,11 @@ export default function TimetableEditor({
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">
-                        {courses.filter(course => !isCourseFullyScheduled(course.id)).length === 0
-                          ? 'No courses available for scheduling'
+                        {availableCourses.filter(course => !isCourseFullyScheduled(course.id)).length === 0
+                          ? 'No courses available for this entity'
                           : 'Select course to schedule...'}
                       </option>
-                      {courses
+                      {availableCourses
                         .filter(course => !isCourseFullyScheduled(course.id))
                         .map(course => (
                           <option key={course.id} value={course.id}>
@@ -1246,9 +1273,9 @@ export default function TimetableEditor({
                           </option>
                         ))}
                     </select>
-                    {courses.filter(course => isCourseFullyScheduled(course.id)).length > 0 && (
+                    {availableCourses.filter(course => isCourseFullyScheduled(course.id)).length > 0 && (
                       <div className="mt-2 text-xs text-gray-500">
-                        {courses.filter(course => isCourseFullyScheduled(course.id)).length} course(s) fully scheduled and hidden
+                        {availableCourses.filter(course => isCourseFullyScheduled(course.id)).length} course(s) fully scheduled and hidden
                       </div>
                     )}
                   </>
@@ -1261,7 +1288,7 @@ export default function TimetableEditor({
                   <h5 className="text-sm font-medium text-blue-900 mb-2">Course Resources</h5>
                   <div className="text-xs text-blue-800 space-y-1">
                     {(() => {
-                      const course = courses.find(c => c.id === editingSlot.courseId)
+                      const course = availableCourses.find(c => c.id === editingSlot.courseId)
                       if (!course) return <p>Course not found</p>
 
                       const isFullyScheduled = isCourseFullyScheduled(course.id)

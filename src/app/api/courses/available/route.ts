@@ -1,245 +1,188 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { ApiResponse, EntityType } from '@/types'
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const entityType = searchParams.get('entityType') as EntityType
+    const entityType = searchParams.get('entityType')
     const entityId = searchParams.get('entityId')
     const sessionId = searchParams.get('sessionId')
 
     if (!entityType || !entityId || !sessionId) {
-      const response: ApiResponse = {
-        success: false,
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Entity type, entity ID, and session ID are required',
-          timestamp: new Date()
-        }
-      }
-      return NextResponse.json(response, { status: 400 })
+      return NextResponse.json(
+        { error: 'entityType, entityId, and sessionId are required' },
+        { status: 400 }
+      )
     }
 
-    // entityId and sessionId are already strings, no need to parse them to integers
+    let courses: any[] = []
 
-    let availableCourses: any[] = []
-
+    // Get courses based on entity type
     switch (entityType) {
-      case EntityType.STUDENT:
-        // Get courses the student is enrolled in
-        availableCourses = await prisma.course.findMany({
-          where: {
-            sessionId: sessionId,
-            OR: [
-              {
-                studentEnrollments: {
-                  some: { studentId: entityId }
-                }
-              },
-              {
-                studentGroupEnrollments: {
-                  some: {
-                    studentGroup: {
-                      studentMemberships: {
-                        some: { studentId: entityId }
-                      }
-                    }
-                  }
-                }
+      case 'student':
+        // Get courses where this student is enrolled
+        const studentEnrollments = await prisma.courseStudentEnrollment.findMany({
+          where: { 
+            studentId: entityId,
+            course: { sessionId }
+          },
+          include: {
+            course: {
+              include: {
+                compulsoryFaculties: true,
+                compulsoryHalls: true,
+                compulsoryFacultyGroups: { include: { facultyGroup: true } },
+                compulsoryHallGroups: { include: { hallGroup: true } },
+                studentEnrollments: { include: { student: true } },
+                studentGroupEnrollments: { include: { studentGroup: true } }
               }
-            ]
-          },
-          include: {
-            compulsoryFaculties: true,
-            compulsoryHalls: true,
-            compulsoryFacultyGroups: {
-              include: { facultyGroup: true }
-            },
-            compulsoryHallGroups: {
-              include: { hallGroup: true }
             }
           }
         })
+        courses = studentEnrollments.map(e => e.course)
         break
 
-      case EntityType.FACULTY:
-        // Get courses the faculty teaches
-        availableCourses = await prisma.course.findMany({
-          where: {
-            sessionId: sessionId,
-            OR: [
-              {
-                compulsoryFaculties: {
-                  some: { id: entityId }
-                }
-              },
-              {
-                compulsoryFacultyGroups: {
-                  some: {
-                    facultyGroup: {
-                      facultyMemberships: {
-                        some: { facultyId: entityId }
-                      }
-                    }
-                  }
-                }
+      case 'studentGroup':
+        // Get courses where this student group is enrolled
+        const studentGroupEnrollments = await prisma.courseStudentGroupEnrollment.findMany({
+          where: { 
+            studentGroupId: entityId,
+            course: { sessionId }
+          },
+          include: {
+            course: {
+              include: {
+                compulsoryFaculties: true,
+                compulsoryHalls: true,
+                compulsoryFacultyGroups: { include: { facultyGroup: true } },
+                compulsoryHallGroups: { include: { hallGroup: true } },
+                studentEnrollments: { include: { student: true } },
+                studentGroupEnrollments: { include: { studentGroup: true } }
               }
-            ]
+            }
+          }
+        })
+        courses = studentGroupEnrollments.map(e => e.course)
+        break
+
+      case 'faculty':
+        // Get courses where this faculty is compulsory
+        courses = await prisma.course.findMany({
+          where: {
+            sessionId,
+            compulsoryFaculties: {
+              some: { id: entityId }
+            }
           },
           include: {
             compulsoryFaculties: true,
             compulsoryHalls: true,
-            compulsoryFacultyGroups: {
-              include: { facultyGroup: true }
-            },
-            compulsoryHallGroups: {
-              include: { hallGroup: true }
-            }
+            compulsoryFacultyGroups: { include: { facultyGroup: true } },
+            compulsoryHallGroups: { include: { hallGroup: true } },
+            studentEnrollments: { include: { student: true } },
+            studentGroupEnrollments: { include: { studentGroup: true } }
           }
         })
         break
 
-      case EntityType.HALL:
-        // Get courses that use this hall
-        availableCourses = await prisma.course.findMany({
-          where: {
-            sessionId: sessionId,
-            OR: [
-              {
-                compulsoryHalls: {
-                  some: { id: entityId }
-                }
-              },
-              {
-                compulsoryHallGroups: {
-                  some: {
-                    hallGroup: {
-                      hallMemberships: {
-                        some: { hallId: entityId }
-                      }
-                    }
-                  }
-                }
+      case 'facultyGroup':
+        // Get courses where this faculty group is compulsory
+        const facultyGroupCourses = await prisma.compulsoryFacultyGroup.findMany({
+          where: { 
+            facultyGroupId: entityId,
+            course: { sessionId }
+          },
+          include: {
+            course: {
+              include: {
+                compulsoryFaculties: true,
+                compulsoryHalls: true,
+                compulsoryFacultyGroups: { include: { facultyGroup: true } },
+                compulsoryHallGroups: { include: { hallGroup: true } },
+                studentEnrollments: { include: { student: true } },
+                studentGroupEnrollments: { include: { studentGroup: true } }
               }
-            ]
+            }
+          }
+        })
+        courses = facultyGroupCourses.map(fg => fg.course)
+        break
+
+      case 'hall':
+        // Get courses where this hall is compulsory
+        courses = await prisma.course.findMany({
+          where: {
+            sessionId,
+            compulsoryHalls: {
+              some: { id: entityId }
+            }
           },
           include: {
             compulsoryFaculties: true,
             compulsoryHalls: true,
-            compulsoryFacultyGroups: {
-              include: { facultyGroup: true }
-            },
-            compulsoryHallGroups: {
-              include: { hallGroup: true }
-            }
+            compulsoryFacultyGroups: { include: { facultyGroup: true } },
+            compulsoryHallGroups: { include: { hallGroup: true } },
+            studentEnrollments: { include: { student: true } },
+            studentGroupEnrollments: { include: { studentGroup: true } }
           }
         })
         break
 
-      case EntityType.STUDENT_GROUP:
-        // Get courses the student group is enrolled in
-        availableCourses = await prisma.course.findMany({
-          where: {
-            sessionId: sessionId,
-            studentGroupEnrollments: {
-              some: { studentGroupId: entityId }
-            }
+      case 'hallGroup':
+        // Get courses where this hall group is compulsory
+        const hallGroupCourses = await prisma.compulsoryHallGroup.findMany({
+          where: { 
+            hallGroupId: entityId,
+            course: { sessionId }
           },
           include: {
-            compulsoryFaculties: true,
-            compulsoryHalls: true,
-            compulsoryFacultyGroups: {
-              include: { facultyGroup: true }
-            },
-            compulsoryHallGroups: {
-              include: { hallGroup: true }
+            course: {
+              include: {
+                compulsoryFaculties: true,
+                compulsoryHalls: true,
+                compulsoryFacultyGroups: { include: { facultyGroup: true } },
+                compulsoryHallGroups: { include: { hallGroup: true } },
+                studentEnrollments: { include: { student: true } },
+                studentGroupEnrollments: { include: { studentGroup: true } }
+              }
             }
           }
         })
+        courses = hallGroupCourses.map(hg => hg.course)
         break
 
-      case EntityType.FACULTY_GROUP:
-        // Get courses the faculty group teaches
-        availableCourses = await prisma.course.findMany({
-          where: {
-            sessionId: sessionId,
-            compulsoryFacultyGroups: {
-              some: { facultyGroupId: entityId }
-            }
-          },
+      case 'course':
+        // For courses, return all courses in the session
+        // (courses don't have enrollment restrictions like other entities)
+        courses = await prisma.course.findMany({
+          where: { sessionId },
           include: {
             compulsoryFaculties: true,
             compulsoryHalls: true,
-            compulsoryFacultyGroups: {
-              include: { facultyGroup: true }
-            },
-            compulsoryHallGroups: {
-              include: { hallGroup: true }
-            }
-          }
-        })
-        break
-
-      case EntityType.HALL_GROUP:
-        // Get courses that use this hall group
-        availableCourses = await prisma.course.findMany({
-          where: {
-            sessionId: sessionId,
-            compulsoryHallGroups: {
-              some: { hallGroupId: entityId }
-            }
-          },
-          include: {
-            compulsoryFaculties: true,
-            compulsoryHalls: true,
-            compulsoryFacultyGroups: {
-              include: { facultyGroup: true }
-            },
-            compulsoryHallGroups: {
-              include: { hallGroup: true }
-            }
+            compulsoryFacultyGroups: { include: { facultyGroup: true } },
+            compulsoryHallGroups: { include: { hallGroup: true } },
+            studentEnrollments: { include: { student: true } },
+            studentGroupEnrollments: { include: { studentGroup: true } }
           }
         })
         break
 
       default:
-        const response: ApiResponse = {
-          success: false,
-          error: {
-            code: 'INVALID_ENTITY_TYPE',
-            message: 'Invalid entity type',
-            timestamp: new Date()
-          }
-        }
-        return NextResponse.json(response, { status: 400 })
+        return NextResponse.json(
+          { error: 'Invalid entity type' },
+          { status: 400 }
+        )
     }
 
-    // Filter courses that still need scheduling (scheduledCount < totalSessions)
-    const coursesNeedingScheduling = availableCourses.filter(course =>
-      course.scheduledCount < course.totalSessions
-    )
-
-    const response: ApiResponse = {
+    return NextResponse.json({
       success: true,
-      data: {
-        courses: coursesNeedingScheduling
-      }
-    }
-
-    return NextResponse.json(response)
-  } catch (error) {
+      data: { courses }
+    })
+  } catch (error: any) {
     console.error('Error fetching available courses:', error)
-
-    const response: ApiResponse = {
-      success: false,
-      error: {
-        code: 'FETCH_COURSES_ERROR',
-        message: 'Failed to fetch available courses',
-        timestamp: new Date()
-      }
-    }
-
-    return NextResponse.json(response, { status: 500 })
+    return NextResponse.json(
+      { error: error.message || 'Failed to fetch available courses' },
+      { status: 500 }
+    )
   }
 }

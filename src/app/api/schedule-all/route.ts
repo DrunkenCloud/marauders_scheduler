@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
 
     const extractedCourseIds = finalCourseConfigs.map(config => config.courseId)
     const compiled = await compileSchedulingData(sessionId, extractedCourseIds);
+    // console.log(JSON.stringify(compiled, null, 2))
 
     // Apply session limits to the compiled data
     for (const config of finalCourseConfigs) {
@@ -85,6 +86,11 @@ export async function POST(request: NextRequest) {
 
     // Run the scheduling algorithm
     const schedulingResult = scheduleCourses(compiled, randomSeed);
+    // const schedulingResult = {
+    //   "success": false,
+    //   "message": "emwo",
+    //   "scheduledSlots": []
+    // }
 
     const totalSessionsToSchedule = finalCourseConfigs.reduce((total, config) => {
       if (config.sessionsToSchedule === -1) {
@@ -107,6 +113,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log(response);
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error processing schedule-all request:', error)
