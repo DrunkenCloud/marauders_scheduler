@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npx prisma generate && npx prisma migrate deploy && next build && npm run db:seed",
+  "buildCommand": "npx prisma generate && npx prisma db push && next build && npm run db:seed",
   "installCommand": "npm install && npx prisma generate",
   "env": {
     "PRISMA_GENERATE_SKIP_AUTOINSTALL": "true"
