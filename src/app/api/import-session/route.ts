@@ -40,11 +40,151 @@ export async function POST(request: NextRequest) {
                            ? `Year ${group.year} ${group.class} ${group.section}` 
                            : 'Unnamed Group')
         
+        // Determine if this is a first year group
+        const year = group.year || 1
+        const isFirstYear = year === 1
+        
+        // Create base timetable with blockers
+        const timetable: any = group.timetable || {}
+        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+        
+        // Initialize days if not present
+        days.forEach(day => {
+          if (!timetable[day]) {
+            timetable[day] = []
+          }
+        })
+        
+        // // Add blockers based on year
+        // if (isFirstYear) {
+        //   // First year blockers
+        //   days.forEach(day => {
+        //     // Lunch break from 11:50 for 1 hour
+        //     timetable[day].push({
+        //       type: 'blocker',
+        //       startHour: 11,
+        //       startMinute: 50,
+        //       duration: 60,
+        //       blockerReason: 'Lunch Break'
+        //     })
+            
+        //     // // Break from 9:50 for 20 mins
+        //     // timetable[day].push({
+        //     //   type: 'blocker',
+        //     //   startHour: 9,
+        //     //   startMinute: 50,
+        //     //   duration: 20,
+        //     //   blockerReason: 'Break'
+        //     // })
+            
+        //     // Break from 2:30 for 10 mins
+        //     timetable[day].push({
+        //       type: 'blocker',
+        //       startHour: 14,
+        //       startMinute: 30,
+        //       duration: 10,
+        //       blockerReason: 'Break'
+        //     })
+        //   })
+          
+        //   // Monday: EAA blockers
+        //   timetable['Monday'].push({
+        //     type: 'blocker',
+        //     startHour: 13,
+        //     startMinute: 40,
+        //     duration: 50,
+        //     blockerReason: 'EAA'
+        //   })
+        //   timetable['Monday'].push({
+        //     type: 'blocker',
+        //     startHour: 14,
+        //     startMinute: 40,
+        //     duration: 50,
+        //     blockerReason: 'EAA'
+        //   })
+          
+        //   // Wednesday: Self Learning blockers
+        //   timetable['Wednesday'].push({
+        //     type: 'blocker',
+        //     startHour: 13,
+        //     startMinute: 40,
+        //     duration: 50,
+        //     blockerReason: 'Self Learning'
+        //   })
+        //   timetable['Wednesday'].push({
+        //     type: 'blocker',
+        //     startHour: 12,
+        //     startMinute: 50,
+        //     duration: 50,
+        //     blockerReason: 'Self Learning'
+        //   })
+        //   timetable['Wednesday'].push({
+        //     type: 'blocker',
+        //     startHour: 14,
+        //     startMinute: 40,
+        //     duration: 50,
+        //     blockerReason: 'Self Learning'
+        //   })
+        // } else {
+        //   // // Other years blockers
+        //   days.forEach(day => {
+        //     // Lunch break from 12:40 for 1 hour
+        //     timetable[day].push({
+        //       type: 'blocker',
+        //       startHour: 12,
+        //       startMinute: 40,
+        //       duration: 60,
+        //       blockerReason: 'Lunch Break'
+        //     })
+            
+        //     // Break from 10:40 for 20 mins
+        //     timetable[day].push({
+        //       type: 'blocker',
+        //       startHour: 10,
+        //       startMinute: 40,
+        //       duration: 20,
+        //       blockerReason: 'Break'
+        //     })
+            
+        //     // Break from 2:30 for 10 mins
+        //     timetable[day].push({
+        //       type: 'blocker',
+        //       startHour: 14,
+        //       startMinute: 30,
+        //       duration: 10,
+        //       blockerReason: 'Break'
+        //     })
+        //   })
+          
+        //   // Wednesday: Self Learning blockers
+        //   timetable['Wednesday'].push({
+        //     type: 'blocker',
+        //     startHour: 13,
+        //     startMinute: 40,
+        //     duration: 50,
+        //     blockerReason: 'Self Learning'
+        //   })
+        //   timetable['Wednesday'].push({
+        //     type: 'blocker',
+        //     startHour: 14,
+        //     startMinute: 40,
+        //     duration: 50,
+        //     blockerReason: 'Self Learning'
+        //   })
+        //   timetable['Wednesday'].push({
+        //     type: 'blocker',
+        //     startHour: 11,
+        //     startMinute: 50,
+        //     duration: 50,
+        //     blockerReason: 'Self Learning'
+        //   })
+        // }
+        
         const newGroup = await prisma.studentGroup.create({
           data: {
             sessionId,
             groupName,
-            timetable: group.timetable || {},
+            timetable,
             startHour: group.startHour || 8,
             startMinute: group.startMinute || 10,
             endHour: group.endHour || 15,
@@ -155,126 +295,253 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Import courses
-    if (data.courses && Array.isArray(data.courses)) {
-      for (const course of data.courses) {
-        const newCourse = await prisma.course.create({
-          data: {
-            sessionId,
-            name: course.name || course.courseName || 'Unnamed Course',
-            code: course.code || course.courseCode || 'UNKNOWN',
-            timetable: course.timetable || {},
-            classDuration: course.classDuration || 50,
-            sessionsPerLecture: course.sessionsPerLecture || 1,
-            totalSessions: course.totalSessions || course.hoursPerWeek || 3,
-            scheduledCount: course.scheduledCount || 0
+    // Helper function to connect course relationships
+    const connectCourseRelationships = async (courseId: string, sourceCourse: any) => {
+      // Connect compulsory faculties
+      if (sourceCourse.compulsoryFaculties && Array.isArray(sourceCourse.compulsoryFaculties)) {
+        for (const fac of sourceCourse.compulsoryFaculties) {
+          const newFacultyId = facultyIdMap.get(fac.id)
+          if (newFacultyId) {
+            await prisma.course.update({
+              where: { id: courseId },
+              data: {
+                compulsoryFaculties: {
+                  connect: { id: newFacultyId }
+                }
+              }
+            })
+            stats.courseRelations++
           }
-        })
-        courseIdMap.set(course.id, newCourse.id)
-        stats.courses++
+        }
+      }
 
-        // If course has a classId (old format), create a student group enrollment
-        if (course.classId) {
-          const newStudentGroupId = studentGroupIdMap.get(course.classId)
+      // Connect compulsory halls
+      if (sourceCourse.compulsoryHalls && Array.isArray(sourceCourse.compulsoryHalls)) {
+        for (const hall of sourceCourse.compulsoryHalls) {
+          const newHallId = hallIdMap.get(hall.id)
+          if (newHallId) {
+            await prisma.course.update({
+              where: { id: courseId },
+              data: {
+                compulsoryHalls: {
+                  connect: { id: newHallId }
+                }
+              }
+            })
+            stats.courseRelations++
+          }
+        }
+      }
+
+      // Connect faculty groups
+      if (sourceCourse.compulsoryFacultyGroups && Array.isArray(sourceCourse.compulsoryFacultyGroups)) {
+        for (const fg of sourceCourse.compulsoryFacultyGroups) {
+          const newFacultyGroupId = facultyGroupIdMap.get(fg.facultyGroupId)
+          if (newFacultyGroupId) {
+            await prisma.compulsoryFacultyGroup.create({
+              data: {
+                courseId,
+                facultyGroupId: newFacultyGroupId
+              }
+            })
+            stats.courseRelations++
+          }
+        }
+      }
+
+      // Connect hall groups
+      if (sourceCourse.compulsoryHallGroups && Array.isArray(sourceCourse.compulsoryHallGroups)) {
+        for (const hg of sourceCourse.compulsoryHallGroups) {
+          const newHallGroupId = hallGroupIdMap.get(hg.hallGroupId)
+          if (newHallGroupId) {
+            await prisma.compulsoryHallGroup.create({
+              data: {
+                courseId,
+                hallGroupId: newHallGroupId
+              }
+            })
+            stats.courseRelations++
+          }
+        }
+      }
+
+      // Connect student enrollments
+      if (sourceCourse.studentEnrollments && Array.isArray(sourceCourse.studentEnrollments)) {
+        for (const enrollment of sourceCourse.studentEnrollments) {
+          const newStudentId = studentIdMap.get(enrollment.studentId)
+          if (newStudentId) {
+            await prisma.courseStudentEnrollment.create({
+              data: {
+                courseId,
+                studentId: newStudentId
+              }
+            })
+            stats.courseRelations++
+          }
+        }
+      }
+
+      // Connect student group enrollments
+      if (sourceCourse.studentGroupEnrollments && Array.isArray(sourceCourse.studentGroupEnrollments)) {
+        for (const enrollment of sourceCourse.studentGroupEnrollments) {
+          const newStudentGroupId = studentGroupIdMap.get(enrollment.studentGroupId)
           if (newStudentGroupId) {
             await prisma.courseStudentGroupEnrollment.create({
               data: {
-                courseId: newCourse.id,
+                courseId,
                 studentGroupId: newStudentGroupId
               }
             })
             stats.courseRelations++
           }
         }
+      }
+    }
 
-        // Connect compulsory faculties
-        if (course.compulsoryFaculties && Array.isArray(course.compulsoryFaculties)) {
-          for (const fac of course.compulsoryFaculties) {
-            const newFacultyId = facultyIdMap.get(fac.id)
-            if (newFacultyId) {
-              await prisma.course.update({
-                where: { id: newCourse.id },
+    // Import courses
+    if (data.courses && Array.isArray(data.courses)) {
+      for (const course of data.courses) {
+        const courseType = course.courseType || 'theory'
+        const courseName = course.name || course.courseName || 'Unnamed Course'
+        const courseCode = course.code || course.courseCode || 'UNKNOWN'
+        
+        // Handle different course types
+        if (courseType === 'lab') {
+          // Create lab course (150 mins, 1 session)
+          const labCourse = await prisma.course.create({
+            data: {
+              sessionId,
+              name: courseName,
+              code: courseCode,
+              timetable: course.timetable || {},
+              classDuration: 150,
+              sessionsPerLecture: 1,
+              totalSessions: 1,
+              scheduledCount: 0
+            }
+          })
+          courseIdMap.set(course.id, labCourse.id)
+          courseIdMap.set(course.id + '_lab', labCourse.id)
+          stats.courses++
+          
+          // Create theory course (50 mins, 1 session)
+          const theoryCourse = await prisma.course.create({
+            data: {
+              sessionId,
+              name: `${courseName} Theory`,
+              code: `${courseCode}-T`,
+              timetable: {},
+              classDuration: 50,
+              sessionsPerLecture: 1,
+              totalSessions: 1,
+              scheduledCount: 0
+            }
+          })
+          courseIdMap.set(course.id + '_theory', theoryCourse.id)
+          stats.courses++
+          
+          // Handle enrollments for both courses
+          if (course.classId) {
+            const newStudentGroupId = studentGroupIdMap.get(course.classId)
+            if (newStudentGroupId) {
+              await prisma.courseStudentGroupEnrollment.create({
                 data: {
-                  compulsoryFaculties: {
-                    connect: { id: newFacultyId }
-                  }
+                  courseId: labCourse.id,
+                  studentGroupId: newStudentGroupId
                 }
               })
-              stats.courseRelations++
-            }
-          }
-        }
-
-        // Connect compulsory halls
-        if (course.compulsoryHalls && Array.isArray(course.compulsoryHalls)) {
-          for (const hall of course.compulsoryHalls) {
-            const newHallId = hallIdMap.get(hall.id)
-            if (newHallId) {
-              await prisma.course.update({
-                where: { id: newCourse.id },
+              await prisma.courseStudentGroupEnrollment.create({
                 data: {
-                  compulsoryHalls: {
-                    connect: { id: newHallId }
-                  }
+                  courseId: theoryCourse.id,
+                  studentGroupId: newStudentGroupId
                 }
               })
-              stats.courseRelations++
+              stats.courseRelations += 2
             }
           }
-        }
-
-        // Connect faculty groups
-        if (course.compulsoryFacultyGroups && Array.isArray(course.compulsoryFacultyGroups)) {
-          for (const fg of course.compulsoryFacultyGroups) {
-            const newFacultyGroupId = facultyGroupIdMap.get(fg.facultyGroupId)
-            if (newFacultyGroupId) {
-              await prisma.compulsoryFacultyGroup.create({
+          
+          // Connect relationships for both courses
+          await connectCourseRelationships(labCourse.id, course)
+          await connectCourseRelationships(theoryCourse.id, course)
+          
+        } else if (courseType === 'lab_theory') {
+          // Create lab+theory course (100 mins, 1 session)
+          const labTheoryCourse = await prisma.course.create({
+            data: {
+              sessionId,
+              name: courseName,
+              code: courseCode,
+              timetable: course.timetable || {},
+              classDuration: 100,
+              sessionsPerLecture: 1,
+              totalSessions: 1,
+              scheduledCount: 0
+            }
+          })
+          courseIdMap.set(course.id, labTheoryCourse.id)
+          courseIdMap.set(course.id + '_labtheory', labTheoryCourse.id)
+          stats.courses++
+          
+          // Create theory course (50 mins, 1 session)
+          const theoryCourse = await prisma.course.create({
+            data: {
+              sessionId,
+              name: `${courseName} Theory`,
+              code: `${courseCode}-T`,
+              timetable: {},
+              classDuration: 50,
+              sessionsPerLecture: 1,
+              totalSessions: course.hoursPerWeek - 2,
+              scheduledCount: 0
+            }
+          })
+          courseIdMap.set(course.id + '_theory', theoryCourse.id)
+          stats.courses++
+          
+          // Handle enrollments for both courses
+          if (course.classId) {
+            const newStudentGroupId = studentGroupIdMap.get(course.classId)
+            if (newStudentGroupId) {
+              await prisma.courseStudentGroupEnrollment.create({
                 data: {
-                  courseId: newCourse.id,
-                  facultyGroupId: newFacultyGroupId
+                  courseId: labTheoryCourse.id,
+                  studentGroupId: newStudentGroupId
                 }
               })
-              stats.courseRelations++
-            }
-          }
-        }
-
-        // Connect hall groups
-        if (course.compulsoryHallGroups && Array.isArray(course.compulsoryHallGroups)) {
-          for (const hg of course.compulsoryHallGroups) {
-            const newHallGroupId = hallGroupIdMap.get(hg.hallGroupId)
-            if (newHallGroupId) {
-              await prisma.compulsoryHallGroup.create({
+              await prisma.courseStudentGroupEnrollment.create({
                 data: {
-                  courseId: newCourse.id,
-                  hallGroupId: newHallGroupId
+                  courseId: theoryCourse.id,
+                  studentGroupId: newStudentGroupId
                 }
               })
-              stats.courseRelations++
+              stats.courseRelations += 2
             }
           }
-        }
-
-        // Connect student enrollments
-        if (course.studentEnrollments && Array.isArray(course.studentEnrollments)) {
-          for (const enrollment of course.studentEnrollments) {
-            const newStudentId = studentIdMap.get(enrollment.studentId)
-            if (newStudentId) {
-              await prisma.courseStudentEnrollment.create({
-                data: {
-                  courseId: newCourse.id,
-                  studentId: newStudentId
-                }
-              })
-              stats.courseRelations++
+          
+          // Connect relationships for both courses
+          await connectCourseRelationships(labTheoryCourse.id, course)
+          await connectCourseRelationships(theoryCourse.id, course)
+          
+        } else {
+          // Regular course (theory, mtech_course, etc.)
+          const newCourse = await prisma.course.create({
+            data: {
+              sessionId,
+              name: courseName,
+              code: courseCode,
+              timetable: course.timetable || {},
+              classDuration: course.classDuration || 50,
+              sessionsPerLecture: course.sessionsPerLecture || 1,
+              totalSessions: course.totalSessions || course.hoursPerWeek || 3,
+              scheduledCount: course.scheduledCount || 0
             }
-          }
-        }
+          })
+          courseIdMap.set(course.id, newCourse.id)
+          stats.courses++
 
-        // Connect student group enrollments
-        if (course.studentGroupEnrollments && Array.isArray(course.studentGroupEnrollments)) {
-          for (const enrollment of course.studentGroupEnrollments) {
-            const newStudentGroupId = studentGroupIdMap.get(enrollment.studentGroupId)
+          // If course has a classId (old format), create a student group enrollment
+          if (course.classId) {
+            const newStudentGroupId = studentGroupIdMap.get(course.classId)
             if (newStudentGroupId) {
               await prisma.courseStudentGroupEnrollment.create({
                 data: {
@@ -285,6 +552,9 @@ export async function POST(request: NextRequest) {
               stats.courseRelations++
             }
           }
+          
+          // Connect relationships
+          await connectCourseRelationships(newCourse.id, course)
         }
       }
     }
@@ -293,19 +563,28 @@ export async function POST(request: NextRequest) {
     if (data.allocations && Array.isArray(data.allocations)) {
       for (const alloc of data.allocations) {
         const newFacultyId = facultyIdMap.get(alloc.facultyId)
-        const newCourseId = courseIdMap.get(alloc.courseId)
         
-        if (newFacultyId && newCourseId) {
-          // Connect faculty to course
-          await prisma.course.update({
-            where: { id: newCourseId },
-            data: {
-              compulsoryFaculties: {
-                connect: { id: newFacultyId }
+        // Get all possible course IDs (main, lab, theory variants)
+        const courseIds = [
+          courseIdMap.get(alloc.courseId),
+          courseIdMap.get(alloc.courseId + '_lab'),
+          courseIdMap.get(alloc.courseId + '_theory'),
+          courseIdMap.get(alloc.courseId + '_labtheory')
+        ].filter(Boolean)
+        
+        if (newFacultyId && courseIds.length > 0) {
+          // Connect faculty to all course variants
+          for (const courseId of courseIds) {
+            await prisma.course.update({
+              where: { id: courseId },
+              data: {
+                compulsoryFaculties: {
+                  connect: { id: newFacultyId }
+                }
               }
-            }
-          })
-          stats.courseRelations++
+            })
+            stats.courseRelations++
+          }
         }
       }
     }
