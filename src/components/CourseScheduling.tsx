@@ -479,7 +479,7 @@ export default function CourseScheduling() {
                           {failure.courseCode} - {failure.courseName}
                         </h3>
                         <div className="flex items-center space-x-4 mt-1 text-sm text-red-700">
-                          <span>📊 {failure.remainingSessions} sessions couldn't be scheduled</span>
+                          <span>📊 {failure.remainingSessions} sessions couldn&apos;t be scheduled</span>
                           <span>🔄 {failure.attemptCount} attempts made</span>
                           <span>📍 {failure.lastAvailableSlots} slots available</span>
                           {failure.totalBlockingEntities > 0 && (
