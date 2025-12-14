@@ -527,8 +527,122 @@ function canSatisfyRemainingCourses(
   return true
 }
 
+// Identify which courses are causing forward checking to fail
+function identifyForwardCheckingBottlenecks(
+  data: CompiledSchedulingData,
+  scheduledDaysMap: Map<string, Set<string>>,
+  courseFailureTracking: Map<string, { attemptCount: number, lastAvailableSlots: number, blockingEntities: Set<string> }>
+): void {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
+  
+  for (const course of data.courses) {
+    const target = course.targetSessions ?? course.totalSessions
+    const remaining = target - course.scheduledCount
+    
+    if (remaining <= 0) continue
+
+    const sessionDuration = course.classDuration * course.sessionsPerLecture
+    const scheduledDays = scheduledDaysMap.get(course.courseId) || new Set()
+    
+    // Find how many slots are available for this course
+    const availableSlots = findAvailableSlots(course, sessionDuration, data, scheduledDays)
+    
+    // Track this course if it's causing forward checking to fail
+    if (availableSlots.length < remaining) {
+      if (!courseFailureTracking.has(course.courseId)) {
+        courseFailureTracking.set(course.courseId, {
+          attemptCount: 0,
+          lastAvailableSlots: availableSlots.length,
+          blockingEntities: new Set()
+        })
+      }
+      const tracking = courseFailureTracking.get(course.courseId)!
+      tracking.attemptCount++
+      tracking.lastAvailableSlots = availableSlots.length
+
+      // Identify blocking entities
+      const allEntityIds = [
+        ...course.studentIds,
+        ...course.facultyIds,
+        ...course.hallIds,
+        ...course.studentGroupIds,
+        ...course.facultyGroupIds,
+        ...course.hallGroupIds
+      ]
+      
+      for (const entityId of allEntityIds) {
+        const entity = data.allEntities[entityId]
+        if (!entity) continue
+        
+        // Check if entity has any free slots across all days
+        let hasAnyFreeSlot = false
+        for (const day of days) {
+          if (isEntityFree(
+            entity.timetable,
+            day,
+            entity.startHour,
+            entity.startMinute,
+            sessionDuration,
+            entity.startHour,
+            entity.startMinute,
+            entity.endHour,
+            entity.endMinute
+          )) {
+            hasAnyFreeSlot = true
+            break
+          }
+        }
+        
+        if (!hasAnyFreeSlot) {
+          tracking.blockingEntities.add(entityId)
+        }
+      }
+    }
+
+    // Check for day diversity issues
+    const uniqueDaysAvailable = new Set(availableSlots.map(s => s.day)).size
+    const workloadCompliantSlots = availableSlots.filter(s => s.withinWorkload).length
+    
+    if (remaining > 1 && uniqueDaysAvailable < Math.min(remaining, days.length)) {
+      if (!(workloadCompliantSlots < remaining && availableSlots.length >= remaining)) {
+        // This course is also problematic
+        if (!courseFailureTracking.has(course.courseId)) {
+          courseFailureTracking.set(course.courseId, {
+            attemptCount: 0,
+            lastAvailableSlots: availableSlots.length,
+            blockingEntities: new Set()
+          })
+        }
+        const tracking = courseFailureTracking.get(course.courseId)!
+        tracking.attemptCount++
+        tracking.lastAvailableSlots = availableSlots.length
+      }
+    }
+  }
+}
+
 // Main recursive scheduling function
-export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { success: boolean, message: string, scheduledSlots?: Array<SlotFragment & { day: string }> } {
+export async function scheduleCourses(data: CompiledSchedulingData, seed?: number): Promise<{
+  success: boolean
+  message: string
+  scheduledSlots?: Array<SlotFragment & { day: string} >
+  failureDetails?: {
+    courseId: string
+    courseCode: string
+    courseName: string
+    attemptCount: number
+    remainingSessions: number
+    lastAvailableSlots: number
+    entities: {
+      students: Array<{ id: string; digitalId: number} >
+      faculties: Array<{ id: string; name: string; shortForm?: string} >
+      halls: Array<{ id: string; name: string; shortForm?: string} >
+      studentGroups: Array<{ id: string; groupName: string} >
+      facultyGroups: Array<{ id: string; groupName: string} >
+      hallGroups: Array<{ id: string; groupName: string} >
+    }
+  }[]
+}> {
   const allScheduledSlots: Array<SlotFragment & { day: string }> = []
   const scheduledDaysMap = new Map<string, Set<string>>() // Track which days each course is scheduled on
 
@@ -542,6 +656,13 @@ export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { 
 
   // FIX: Memoization for failed states
   const failedStates = new Set<string>()
+
+  // Track courses that couldn't be scheduled and which entities blocked them
+  const courseFailureTracking = new Map<string, {
+    attemptCount: number
+    lastAvailableSlots: number
+    blockingEntities: Set<string> // Entity IDs that had conflicts
+  }>()
 
   function getStateKey(): string {
     const courseParts = data.courses.map(c => {
@@ -573,6 +694,8 @@ export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { 
 
     // FIX: Forward checking - fail early if remaining courses can't be satisfied
     if (!canSatisfyRemainingCourses(data, scheduledDaysMap)) {
+      // Identify which courses are causing forward checking failures
+      identifyForwardCheckingBottlenecks(data, scheduledDaysMap, courseFailureTracking)
       failedStates.add(stateKey)
       return false
     }
@@ -618,7 +741,61 @@ export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { 
       // FIX: Find slots dynamically right before trying
       const availableSlots = findAvailableSlots(course, sessionDuration, data, scheduledDays)
 
-      if (availableSlots.length === 0) continue
+      // Track failure attempts and identify blocking entities
+      if (!courseFailureTracking.has(course.courseId)) {
+        courseFailureTracking.set(course.courseId, {
+          attemptCount: 0,
+          lastAvailableSlots: availableSlots.length,
+          blockingEntities: new Set()
+        })
+      }
+      const tracking = courseFailureTracking.get(course.courseId)!
+      tracking.attemptCount++
+      tracking.lastAvailableSlots = availableSlots.length
+
+      // If no slots available, identify which entities are blocking
+      if (availableSlots.length === 0) {
+        const allEntityIds = [
+          ...course.studentIds,
+          ...course.facultyIds,
+          ...course.hallIds,
+          ...course.studentGroupIds,
+          ...course.facultyGroupIds,
+          ...course.hallGroupIds
+        ]
+        
+        // Check each entity to see if they have ANY free time
+        for (const entityId of allEntityIds) {
+          const entity = data.allEntities[entityId]
+          if (!entity) continue
+          
+          // Check if entity has any free slots across all days
+          let hasAnyFreeSlot = false
+          for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) {
+            if (isEntityFree(
+              entity.timetable,
+              day,
+              entity.startHour,
+              entity.startMinute,
+              sessionDuration,
+              entity.startHour,
+              entity.startMinute,
+              entity.endHour,
+              entity.endMinute
+            )) {
+              hasAnyFreeSlot = true
+              break
+            }
+          }
+          
+          // If entity has no free slots, they're blocking
+          if (!hasAnyFreeSlot) {
+            tracking.blockingEntities.add(entityId)
+          }
+        }
+        
+        continue
+      }
 
       for (const slot of availableSlots) {
         const { day, startHour, startMinute } = slot
@@ -740,12 +917,179 @@ export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { 
       scheduledSlots: allScheduledSlots
     }
   } else {
+    // Collect failure details for unscheduled courses
+    const failureDetails = await collectFailureDetails(data, courseFailureTracking, scheduledDaysMap)
+
     return {
       success: false,
       message: `Could not schedule all courses. Scheduled ${allScheduledSlots.length} sessions before getting stuck.`,
-      scheduledSlots: allScheduledSlots
+      scheduledSlots: allScheduledSlots,
+      failureDetails
     }
   }
+}
+
+// Helper function to collect detailed failure information
+async function collectFailureDetails(
+  data: CompiledSchedulingData,
+  courseFailureTracking: Map<string, { attemptCount: number, lastAvailableSlots: number, blockingEntities: Set<string> }>,
+  scheduledDaysMap: Map<string, Set<string>>
+) {
+  const failureDetails: any[] = []
+
+  for (const course of data.courses) {
+    const target = course.targetSessions ?? course.totalSessions
+    const remaining = target - course.scheduledCount
+
+    if (remaining > 0) {
+      const tracking = courseFailureTracking.get(course.courseId)
+      const blockingEntityIds = tracking?.blockingEntities || new Set()
+
+      // Fetch course details from database
+      const courseData = await prisma.course.findUnique({
+        where: { id: course.courseId },
+        include: {
+          compulsoryFaculties: true,
+          compulsoryHalls: true,
+          compulsoryFacultyGroups: {
+            include: { facultyGroup: true }
+          },
+          compulsoryHallGroups: {
+            include: { hallGroup: true }
+          },
+          studentEnrollments: {
+            include: { student: true }
+          },
+          studentGroupEnrollments: {
+            include: { studentGroup: true }
+          }
+        }
+      })
+
+      if (courseData) {
+        // Separate blocking entities from non-blocking ones
+        const blockingStudents = courseData.studentEnrollments
+          .filter(e => blockingEntityIds.has(e.student.id))
+          .map(e => ({
+            id: e.student.id,
+            digitalId: e.student.digitalId,
+            isBlocking: true
+          }))
+        
+        const nonBlockingStudents = courseData.studentEnrollments
+          .filter(e => !blockingEntityIds.has(e.student.id))
+          .map(e => ({
+            id: e.student.id,
+            digitalId: e.student.digitalId,
+            isBlocking: false
+          }))
+
+        const blockingFaculties = courseData.compulsoryFaculties
+          .filter(f => blockingEntityIds.has(f.id))
+          .map(f => ({
+            id: f.id,
+            name: f.name,
+            shortForm: f.shortForm || undefined,
+            isBlocking: true
+          }))
+        
+        const nonBlockingFaculties = courseData.compulsoryFaculties
+          .filter(f => !blockingEntityIds.has(f.id))
+          .map(f => ({
+            id: f.id,
+            name: f.name,
+            shortForm: f.shortForm || undefined,
+            isBlocking: false
+          }))
+
+        const blockingHalls = courseData.compulsoryHalls
+          .filter(h => blockingEntityIds.has(h.id))
+          .map(h => ({
+            id: h.id,
+            name: h.name,
+            shortForm: h.shortForm || undefined,
+            isBlocking: true
+          }))
+        
+        const nonBlockingHalls = courseData.compulsoryHalls
+          .filter(h => !blockingEntityIds.has(h.id))
+          .map(h => ({
+            id: h.id,
+            name: h.name,
+            shortForm: h.shortForm || undefined,
+            isBlocking: false
+          }))
+
+        const blockingStudentGroups = courseData.studentGroupEnrollments
+          .filter(e => blockingEntityIds.has(e.studentGroup.id))
+          .map(e => ({
+            id: e.studentGroup.id,
+            groupName: e.studentGroup.groupName,
+            isBlocking: true
+          }))
+        
+        const nonBlockingStudentGroups = courseData.studentGroupEnrollments
+          .filter(e => !blockingEntityIds.has(e.studentGroup.id))
+          .map(e => ({
+            id: e.studentGroup.id,
+            groupName: e.studentGroup.groupName,
+            isBlocking: false
+          }))
+
+        const blockingFacultyGroups = courseData.compulsoryFacultyGroups
+          .filter(cfg => blockingEntityIds.has(cfg.facultyGroup.id))
+          .map(cfg => ({
+            id: cfg.facultyGroup.id,
+            groupName: cfg.facultyGroup.groupName,
+            isBlocking: true
+          }))
+        
+        const nonBlockingFacultyGroups = courseData.compulsoryFacultyGroups
+          .filter(cfg => !blockingEntityIds.has(cfg.facultyGroup.id))
+          .map(cfg => ({
+            id: cfg.facultyGroup.id,
+            groupName: cfg.facultyGroup.groupName,
+            isBlocking: false
+          }))
+
+        const blockingHallGroups = courseData.compulsoryHallGroups
+          .filter(chg => blockingEntityIds.has(chg.hallGroup.id))
+          .map(chg => ({
+            id: chg.hallGroup.id,
+            groupName: chg.hallGroup.groupName,
+            isBlocking: true
+          }))
+        
+        const nonBlockingHallGroups = courseData.compulsoryHallGroups
+          .filter(chg => !blockingEntityIds.has(chg.hallGroup.id))
+          .map(chg => ({
+            id: chg.hallGroup.id,
+            groupName: chg.hallGroup.groupName,
+            isBlocking: false
+          }))
+
+        failureDetails.push({
+          courseId: course.courseId,
+          courseCode: course.courseCode,
+          courseName: courseData.name,
+          attemptCount: tracking?.attemptCount || 0,
+          remainingSessions: remaining,
+          lastAvailableSlots: tracking?.lastAvailableSlots || 0,
+          totalBlockingEntities: blockingEntityIds.size,
+          entities: {
+            students: [...blockingStudents, ...nonBlockingStudents],
+            faculties: [...blockingFaculties, ...nonBlockingFaculties],
+            halls: [...blockingHalls, ...nonBlockingHalls],
+            studentGroups: [...blockingStudentGroups, ...nonBlockingStudentGroups],
+            facultyGroups: [...blockingFacultyGroups, ...nonBlockingFacultyGroups],
+            hallGroups: [...blockingHallGroups, ...nonBlockingHallGroups]
+          }
+        })
+      }
+    }
+  }
+
+  return failureDetails
 }
 
 // Update entity timetables with scheduled slots

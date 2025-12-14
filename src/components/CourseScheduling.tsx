@@ -21,6 +21,8 @@ export default function CourseScheduling() {
   const [schedulingResult, setSchedulingResult] = useState<any>(null)
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [committing, setCommitting] = useState(false)
+  const [failureDetails, setFailureDetails] = useState<any[]>([])
+  const [showFailureDetails, setShowFailureDetails] = useState(false)
 
   // Load courses
   useEffect(() => {
@@ -148,15 +150,26 @@ export default function CourseScheduling() {
       const data = await response.json()
       console.log(JSON.stringify(data, null, 2));
 
+      // Store the scheduling results regardless of success status
+      setScheduledSlots(data.data?.scheduledSlots || [])
+      setSchedulingResult(data.data || null)
+      setFailureDetails(data.data?.failureDetails || [])
+      
       if (data.success) {
-        // Store the scheduling results for preview
-        setScheduledSlots(data.data.scheduledSlots || [])
-        setSchedulingResult(data.data)
-        alert(`Scheduling preview ready! Found ${data.data.scheduledSlots?.length || 0} sessions to schedule.`)
+        if (data.data.failureDetails && data.data.failureDetails.length > 0) {
+          setShowFailureDetails(true)
+          alert(`Partial scheduling completed! ${data.data.scheduledSlots?.length || 0} sessions scheduled, but ${data.data.failureDetails.length} courses could not be fully scheduled.`)
+        } else {
+          alert(`Scheduling preview ready! Found ${data.data.scheduledSlots?.length || 0} sessions to schedule.`)
+        }
       } else {
-        alert(`Scheduling failed: ${data.error?.message || 'Unknown error'}`)
-        setScheduledSlots([])
-        setSchedulingResult(null)
+        // Even on failure, show what was scheduled and what failed
+        if (data.data?.failureDetails && data.data.failureDetails.length > 0) {
+          setShowFailureDetails(true)
+          alert(`Scheduling incomplete: ${data.data.scheduledSlots?.length || 0} sessions scheduled, ${data.data.failureDetails.length} courses failed. Check failure details below.`)
+        } else {
+          alert(`Scheduling failed: ${data.error?.message || 'Unknown error'}`)
+        }
       }
     } catch (error) {
       console.error('Error scheduling courses:', error)
@@ -223,6 +236,8 @@ export default function CourseScheduling() {
   const handleClearPreview = () => {
     setScheduledSlots([])
     setSchedulingResult(null)
+    setFailureDetails([])
+    setShowFailureDetails(false)
   }
 
   if (!currentSession) {
@@ -431,6 +446,211 @@ export default function CourseScheduling() {
             </>
           )}
         </div>
+
+        {/* Failure Details */}
+        {failureDetails.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mt-6 border-2 border-red-300">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-red-900 flex items-center">
+                  <span className="mr-2">⚠️</span>
+                  Scheduling Conflicts
+                </h2>
+                <p className="text-sm text-red-700 mt-1">
+                  {failureDetails.length} course{failureDetails.length !== 1 ? 's' : ''} could not be fully scheduled
+                </p>
+              </div>
+              <button
+                onClick={() => setShowFailureDetails(!showFailureDetails)}
+                className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-300 rounded-md hover:bg-red-100"
+              >
+                {showFailureDetails ? 'Hide Details' : 'Show Details'}
+              </button>
+            </div>
+
+            {showFailureDetails && (
+              <div className="space-y-4">
+                {failureDetails.map((failure, index) => (
+                  <div key={index} className="border border-red-200 rounded-lg p-4 bg-red-50">
+                    {/* Course Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-red-900">
+                          {failure.courseCode} - {failure.courseName}
+                        </h3>
+                        <div className="flex items-center space-x-4 mt-1 text-sm text-red-700">
+                          <span>📊 {failure.remainingSessions} sessions couldn't be scheduled</span>
+                          <span>🔄 {failure.attemptCount} attempts made</span>
+                          <span>📍 {failure.lastAvailableSlots} slots available</span>
+                          {failure.totalBlockingEntities > 0 && (
+                            <span className="font-semibold">🚫 {failure.totalBlockingEntities} blocking entities</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Entities Involved */}
+                    <div className="grid grid-cols-2 gap-4 mt-4">
+                      {/* Students */}
+                      {failure.entities.students.length > 0 && (
+                        <div className="bg-white rounded p-3 border border-red-200">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                            <span className="mr-1">🎓</span>
+                            Students ({failure.entities.students.length})
+                            {failure.entities.students.some((s: any) => s.isBlocking) && (
+                              <span className="ml-2 text-red-600">⚠️</span>
+                            )}
+                          </h4>
+                          <div className="text-xs space-y-1 max-h-24 overflow-y-auto">
+                            {failure.entities.students.slice(0, 5).map((student: any) => (
+                              <div 
+                                key={student.id}
+                                className={student.isBlocking ? 'text-red-700 font-semibold bg-red-100 px-1 rounded' : 'text-gray-600'}
+                              >
+                                {student.isBlocking && '🚫 '}ID: {student.digitalId}
+                              </div>
+                            ))}
+                            {failure.entities.students.length > 5 && (
+                              <div className="text-gray-500 italic">
+                                +{failure.entities.students.length - 5} more
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Student Groups */}
+                      {failure.entities.studentGroups.length > 0 && (
+                        <div className="bg-white rounded p-3 border border-red-200">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                            <span className="mr-1">👨‍🎓</span>
+                            Student Groups ({failure.entities.studentGroups.length})
+                            {failure.entities.studentGroups.some((g: any) => g.isBlocking) && (
+                              <span className="ml-2 text-red-600">⚠️</span>
+                            )}
+                          </h4>
+                          <div className="text-xs space-y-1">
+                            {failure.entities.studentGroups.map((group: any) => (
+                              <div 
+                                key={group.id}
+                                className={group.isBlocking ? 'text-red-700 font-semibold bg-red-100 px-1 rounded' : 'text-gray-600'}
+                              >
+                                {group.isBlocking && '🚫 '}{group.groupName}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Faculties */}
+                      {failure.entities.faculties.length > 0 && (
+                        <div className="bg-white rounded p-3 border border-red-200">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                            <span className="mr-1">👤</span>
+                            Faculty ({failure.entities.faculties.length})
+                            {failure.entities.faculties.some((f: any) => f.isBlocking) && (
+                              <span className="ml-2 text-red-600">⚠️</span>
+                            )}
+                          </h4>
+                          <div className="text-xs space-y-1">
+                            {failure.entities.faculties.map((faculty: any) => (
+                              <div 
+                                key={faculty.id}
+                                className={faculty.isBlocking ? 'text-red-700 font-semibold bg-red-100 px-1 rounded' : 'text-gray-600'}
+                              >
+                                {faculty.isBlocking && '🚫 '}{faculty.shortForm || faculty.name}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Faculty Groups */}
+                      {failure.entities.facultyGroups.length > 0 && (
+                        <div className="bg-white rounded p-3 border border-red-200">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                            <span className="mr-1">👥</span>
+                            Faculty Groups ({failure.entities.facultyGroups.length})
+                            {failure.entities.facultyGroups.some((g: any) => g.isBlocking) && (
+                              <span className="ml-2 text-red-600">⚠️</span>
+                            )}
+                          </h4>
+                          <div className="text-xs space-y-1">
+                            {failure.entities.facultyGroups.map((group: any) => (
+                              <div 
+                                key={group.id}
+                                className={group.isBlocking ? 'text-red-700 font-semibold bg-red-100 px-1 rounded' : 'text-gray-600'}
+                              >
+                                {group.isBlocking && '🚫 '}{group.groupName}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Halls */}
+                      {failure.entities.halls.length > 0 && (
+                        <div className="bg-white rounded p-3 border border-red-200">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                            <span className="mr-1">🏛️</span>
+                            Halls ({failure.entities.halls.length})
+                            {failure.entities.halls.some((h: any) => h.isBlocking) && (
+                              <span className="ml-2 text-red-600">⚠️</span>
+                            )}
+                          </h4>
+                          <div className="text-xs space-y-1">
+                            {failure.entities.halls.map((hall: any) => (
+                              <div 
+                                key={hall.id}
+                                className={hall.isBlocking ? 'text-red-700 font-semibold bg-red-100 px-1 rounded' : 'text-gray-600'}
+                              >
+                                {hall.isBlocking && '🚫 '}{hall.shortForm || hall.name}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hall Groups */}
+                      {failure.entities.hallGroups.length > 0 && (
+                        <div className="bg-white rounded p-3 border border-red-200">
+                          <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center">
+                            <span className="mr-1">🏢</span>
+                            Hall Groups ({failure.entities.hallGroups.length})
+                            {failure.entities.hallGroups.some((g: any) => g.isBlocking) && (
+                              <span className="ml-2 text-red-600">⚠️</span>
+                            )}
+                          </h4>
+                          <div className="text-xs space-y-1">
+                            {failure.entities.hallGroups.map((group: any) => (
+                              <div 
+                                key={group.id}
+                                className={group.isBlocking ? 'text-red-700 font-semibold bg-red-100 px-1 rounded' : 'text-gray-600'}
+                              >
+                                {group.isBlocking && '🚫 '}{group.groupName}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Suggestions */}
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <h4 className="text-xs font-semibold text-yellow-900 mb-1">💡 Suggestions:</h4>
+                      <ul className="text-xs text-yellow-800 space-y-1 list-disc list-inside">
+                        <li>Check if involved entities have conflicting schedules or blockers</li>
+                        <li>Verify working hours overlap for all entities</li>
+                        <li>Consider reducing the number of sessions or adjusting session duration</li>
+                        <li>Review entity workload thresholds and availability</li>
+                      </ul>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Scheduled Slots Preview */}
         {scheduledSlots.length > 0 && (

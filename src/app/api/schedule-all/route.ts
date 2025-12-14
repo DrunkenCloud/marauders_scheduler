@@ -22,9 +22,6 @@ export async function POST(request: NextRequest) {
       finalCourseConfigs = []
     }
 
-    // Log the request body for debugging
-    console.log('Session ID:', sessionId)
-
     // Validate required fields
     if (!sessionId) {
       const response: ApiResponse = {
@@ -72,7 +69,6 @@ export async function POST(request: NextRequest) {
 
     const extractedCourseIds = finalCourseConfigs.map(config => config.courseId)
     const compiled = await compileSchedulingData(sessionId, extractedCourseIds);
-    // console.log(JSON.stringify(compiled, null, 2))
 
     // Apply session limits to the compiled data
     for (const config of finalCourseConfigs) {
@@ -84,13 +80,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Run the scheduling algorithm
-    const schedulingResult = scheduleCourses(compiled, randomSeed);
-    // const schedulingResult = {
-    //   "success": false,
-    //   "message": "emwo",
-    //   "scheduledSlots": []
-    // }
+    const schedulingResult = await scheduleCourses(compiled, randomSeed);
 
     const totalSessionsToSchedule = finalCourseConfigs.reduce((total, config) => {
       if (config.sessionsToSchedule === -1) {
@@ -108,12 +98,12 @@ export async function POST(request: NextRequest) {
         courseConfigs: finalCourseConfigs,
         coursesCount: extractedCourseIds.length,
         totalSessionsToSchedule,
+        failureDetails: schedulingResult?.failureDetails || [],
         scheduledSlots: schedulingResult.scheduledSlots || [],
-        timestamp: new Date()
+        timestamp: new Date(),
       }
     }
 
-    console.log(response);
     return NextResponse.json(response)
   } catch (error) {
     console.error('Error processing schedule-all request:', error)
