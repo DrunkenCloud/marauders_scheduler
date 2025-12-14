@@ -35,6 +35,19 @@ export default function TimetableEditor({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  // Drag and drop state
+  const [selectedSlots, setSelectedSlots] = useState<Array<{ day: string; slotIndex: number }>>([])
+  const [draggingSlots, setDraggingSlots] = useState<Array<{ day: string; slotIndex: number; slot: TimetableSlot }> | null>(null)
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
+  const [dragPreview, setDragPreview] = useState<{ day: string; startTime: number } | null>(null)
+  const [moveConflicts, setMoveConflicts] = useState<string[]>([])
+  const [showMoveConfirmation, setShowMoveConfirmation] = useState(false)
+  const [pendingMove, setPendingMove] = useState<{
+    slots: Array<{ day: string; slotIndex: number; slot: TimetableSlot }>
+    targetDay: string
+    targetStartTime: number
+  } | null>(null)
+
   // Slot editor form state
   const [editingSlot, setEditingSlot] = useState<TimetableSlot>({
     type: 'course',
@@ -137,6 +150,119 @@ export default function TimetableEditor({
   useEffect(() => {
     loadAvailableCourses()
   }, [loadAvailableCourses])
+
+  // Check for conflicts when moving slots (excludes all moving slots from conflict detection)
+  const checkConflictsExcludingSlots = useCallback(async (
+    slot: TimetableSlot, 
+    day: string, 
+    excludeSlots: Array<{ day: string; slotIndex: number; slot: TimetableSlot }>,
+    movedSlots: TimetableSlot[]
+  ): Promise<string[]> => {
+    if (!currentSession) return []
+
+    const conflicts: string[] = []
+    const slotStart = slot.startHour * 60 + slot.startMinute
+    const slotEnd = slotStart + slot.duration
+
+    // Helper function to check if two time slots overlap
+    const slotsOverlap = (slot1Start: number, slot1End: number, slot2Start: number, slot2End: number) => {
+      return slot1Start < slot2End && slot1End > slot2Start
+    }
+
+    // Helper function to format time for display
+    const formatTime = (hour: number, minute: number) => {
+      return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
+    }
+
+    // Helper to check if a slot is one of the moving slots
+    const isMovingSlot = (existingSlot: TimetableSlot, checkDay: string, checkIndex: number) => {
+      // Check if it's in the original positions
+      const isOriginal = excludeSlots.some(es => 
+        es.day === checkDay && 
+        es.slotIndex === checkIndex
+      )
+      
+      // Check if it matches any of the moved slots (to avoid self-conflict in new position)
+      const isMovedSlot = movedSlots.some(ms => {
+        const msStart = ms.startHour * 60 + ms.startMinute
+        const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
+        return msStart === existingStart && 
+               ms.duration === existingSlot.duration &&
+               ms.type === existingSlot.type &&
+               (ms.courseId === existingSlot.courseId || ms.courseCode === existingSlot.courseCode)
+      })
+      
+      return isOriginal || isMovedSlot
+    }
+
+    // Get all entity IDs that would be affected by this slot
+    const allEntityIds = [
+      ...(slot.facultyIds || []).map(id => ({ type: 'faculty', id })),
+      ...(slot.facultyGroupIds || []).map(id => ({ type: 'facultyGroup', id })),
+      ...(slot.hallIds || []).map(id => ({ type: 'hall', id })),
+      ...(slot.hallGroupIds || []).map(id => ({ type: 'hallGroup', id })),
+      ...(slot.studentIds || []).map(id => ({ type: 'student', id })),
+      ...(slot.studentGroupIds || []).map(id => ({ type: 'studentGroup', id }))
+    ]
+
+    // Check conflicts for each related entity
+    for (const entity of allEntityIds) {
+      try {
+        const response = await fetch(`/api/timetables?entityType=${entity.type}&entityId=${entity.id}&sessionId=${currentSession.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data.timetable) {
+            const entityTimetable = data.data.timetable
+            const daySlots = entityTimetable[day] || []
+
+            // Check each existing slot for conflicts
+            for (let i = 0; i < daySlots.length; i++) {
+              const existingSlot = daySlots[i]
+
+              // Skip if this is one of the slots we're moving
+              if (entityType === entity.type && entityId === entity.id && isMovingSlot(existingSlot, day, i)) {
+                continue
+              }
+
+              if (typeof existingSlot === 'object' && 'startHour' in existingSlot) {
+                const existingStart = existingSlot.startHour * 60 + existingSlot.startMinute
+                const existingEnd = existingStart + existingSlot.duration
+
+                // Check for time overlap
+                if (slotsOverlap(slotStart, slotEnd, existingStart, existingEnd)) {
+                  // Skip if this is the same course (not a real conflict)
+                  if (slot.type === 'course' && existingSlot.type === 'course' && 
+                      slot.courseId && existingSlot.courseId && 
+                      slot.courseId === existingSlot.courseId) {
+                    continue
+                  }
+
+                  const entityName = await getEntityName(entity.type, entity.id)
+                  const conflictTime = `${formatTime(existingSlot.startHour, existingSlot.startMinute)} - ${formatTime(
+                    Math.floor(existingEnd / 60),
+                    existingEnd % 60
+                  )}`
+
+                  let conflictDescription = ''
+                  if (existingSlot.type === 'course') {
+                    conflictDescription = existingSlot.courseCode || 'Course'
+                  } else if (existingSlot.type === 'blocker') {
+                    conflictDescription = existingSlot.blockerReason || 'Blocked time'
+                  }
+
+                  conflicts.push(`${entityName} is already scheduled: ${conflictDescription} (${conflictTime})`)
+                }
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error(`Error checking conflicts for ${entity.type} ${entity.id}:`, error)
+      }
+    }
+
+    return conflicts
+  }, [currentSession, entityType, entityId])
 
   // Check for conflicts when adding/updating slots
   const checkConflicts = useCallback(async (slot: TimetableSlot, day: string, excludeSlotIndex?: number): Promise<string[]> => {
@@ -331,7 +457,7 @@ export default function TimetableEditor({
     return { left: Math.max(0, left), width: Math.max(20, width) }
   }
 
-  const getTimeFromPosition = (x: number) => {
+  const getTimeFromPosition = (x: number, snapToFive: boolean = false) => {
     if (!entityTiming) return { hour: 8, minute: 0 }
 
     const timelineWidth = getTimelineWidth()
@@ -341,13 +467,18 @@ export default function TimetableEditor({
     const minutesFromStart = (x / timelineWidth) * totalMinutes
     const totalMinutesFromMidnight = timelineStart + minutesFromStart
 
-    const hour = Math.floor(totalMinutesFromMidnight / 60)
-    const minute = Math.floor(totalMinutesFromMidnight % 60)
+    let hour = Math.floor(totalMinutesFromMidnight / 60)
+    let minute = Math.floor(totalMinutesFromMidnight % 60)
+
+    // Snap to nearest 5 minutes (rounding down)
+    if (snapToFive) {
+      minute = Math.floor(minute / 5) * 5
+    }
 
     return { hour: Math.max(0, Math.min(23, hour)), minute: Math.max(0, Math.min(59, minute)) }
   }
 
-  const handleSlotClick = (day: string, slotIndex: number) => {
+  const handleSlotClick = (day: string, slotIndex: number, event?: React.MouseEvent) => {
     if (readOnly || !timetable) return
 
     const daySlots = timetable.schedule[day] || []
@@ -355,6 +486,27 @@ export default function TimetableEditor({
 
     if (slot && typeof slot === 'object' && 'type' in slot) {
       const tSlot = slot as TimetableSlot
+
+      // Multi-select with Ctrl/Cmd key
+      if (event && (event.ctrlKey || event.metaKey)) {
+        const slotId = { day, slotIndex }
+        const isAlreadySelected = selectedSlots.some(s => s.day === day && s.slotIndex === slotIndex)
+        
+        if (isAlreadySelected) {
+          setSelectedSlots(selectedSlots.filter(s => !(s.day === day && s.slotIndex === slotIndex)))
+        } else {
+          // Only allow multi-select if all slots are on the same day
+          if (selectedSlots.length === 0 || selectedSlots.every(s => s.day === day)) {
+            setSelectedSlots([...selectedSlots, slotId])
+          } else {
+            // Different day, start new selection
+            setSelectedSlots([slotId])
+          }
+        }
+        return
+      }
+
+      // Regular click - open editor
       setSelectedSlot({ day, slotIndex, slot: tSlot })
       setEditingSlot({
         ...tSlot,
@@ -367,6 +519,7 @@ export default function TimetableEditor({
       })
       setSelectedDay(day)
       setConflicts([])
+      setSelectedSlots([]) // Clear multi-selection when opening editor
     }
   }
 
@@ -799,6 +952,225 @@ export default function TimetableEditor({
     }
   }
 
+  // Drag and drop handlers
+  const handleSlotMouseDown = (day: string, slotIndex: number, event: React.MouseEvent) => {
+    if (readOnly || !timetable) return
+
+    // Check if this slot is part of the multi-selection
+    const isInSelection = selectedSlots.some(s => s.day === day && s.slotIndex === slotIndex)
+    
+    let slotsToMove: Array<{ day: string; slotIndex: number; slot: TimetableSlot }>
+    
+    if (isInSelection && selectedSlots.length > 0) {
+      // Move all selected slots
+      slotsToMove = selectedSlots.map(s => {
+        const slot = timetable.schedule[s.day]?.[s.slotIndex] as TimetableSlot
+        return { day: s.day, slotIndex: s.slotIndex, slot }
+      }).filter(s => s.slot) // Filter out any invalid slots
+    } else {
+      // Move just this slot
+      const slot = timetable.schedule[day]?.[slotIndex] as TimetableSlot
+      if (!slot) return
+      slotsToMove = [{ day, slotIndex, slot }]
+    }
+
+    setDraggingSlots(slotsToMove)
+    setDragOffset({ x: event.clientX, y: event.clientY })
+    
+    // Prevent text selection during drag
+    event.preventDefault()
+  }
+
+  const handleMouseMove = useCallback((event: MouseEvent) => {
+    if (!draggingSlots || !timetable || !entityTiming) return
+
+    // Find which day row we're over
+    const dayElements = document.querySelectorAll('[data-day-row]')
+    let targetDay: string | null = null
+    
+    for (const el of Array.from(dayElements)) {
+      const rect = el.getBoundingClientRect()
+      if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+        targetDay = el.getAttribute('data-day-row')
+        break
+      }
+    }
+
+    if (!targetDay) {
+      setDragPreview(null)
+      return
+    }
+
+    // Find the timeline element to calculate time position
+    const timelineEl = document.querySelector(`[data-day-row="${targetDay}"] [data-timeline]`)
+    if (!timelineEl) return
+
+    const rect = timelineEl.getBoundingClientRect()
+    const x = event.clientX - rect.left
+    const { hour, minute } = getTimeFromPosition(x, true) // Snap to 5-minute intervals
+    const startTime = hour * 60 + minute
+
+    setDragPreview({ day: targetDay, startTime })
+  }, [draggingSlots, timetable, entityTiming, getTimeFromPosition])
+
+  const handleMouseUp = useCallback(async () => {
+    if (!draggingSlots || !dragPreview || !timetable || !currentSession) {
+      setDraggingSlots(null)
+      setDragPreview(null)
+      return
+    }
+
+    // Check if all dragging slots are from the same day
+    const sourceDays = new Set(draggingSlots.map(s => s.day))
+    const allSameDay = sourceDays.size === 1
+    const sourceDay = draggingSlots[0].day
+
+    if (!allSameDay) {
+      alert('Cannot move slots from different days together')
+      setDraggingSlots(null)
+      setDragPreview(null)
+      return
+    }
+
+    // Calculate time offset from first slot
+    const firstSlot = draggingSlots[0].slot
+    const firstSlotStartTime = firstSlot.startHour * 60 + firstSlot.startMinute
+    const timeOffset = dragPreview.startTime - firstSlotStartTime
+
+    // Check if moving to same position
+    if (dragPreview.day === sourceDay && timeOffset === 0) {
+      setDraggingSlots(null)
+      setDragPreview(null)
+      return
+    }
+
+    // Create moved slots with new times
+    const movedSlots = draggingSlots.map(({ slot }) => {
+      const originalStartTime = slot.startHour * 60 + slot.startMinute
+      const newStartTime = originalStartTime + timeOffset
+      const newHour = Math.floor(newStartTime / 60)
+      const newMinute = newStartTime % 60
+
+      return {
+        ...slot,
+        startHour: newHour,
+        startMinute: newMinute
+      }
+    })
+
+    // Check for conflicts, but exclude the slots being moved from conflict detection
+    const allConflicts: string[] = []
+    for (let i = 0; i < movedSlots.length; i++) {
+      const movedSlot = movedSlots[i]
+      
+      // Create a custom conflict checker that excludes all moving slots
+      const conflicts = await checkConflictsExcludingSlots(movedSlot, dragPreview.day, draggingSlots, movedSlots)
+      allConflicts.push(...conflicts)
+    }
+
+    if (allConflicts.length > 0) {
+      // Show conflicts and revert
+      setMoveConflicts(allConflicts)
+      setDraggingSlots(null)
+      setDragPreview(null)
+      return
+    }
+
+    // No conflicts - show confirmation dialog
+    setPendingMove({
+      slots: draggingSlots,
+      targetDay: dragPreview.day,
+      targetStartTime: dragPreview.startTime
+    })
+    setShowMoveConfirmation(true)
+    setDraggingSlots(null)
+    setDragPreview(null)
+  }, [draggingSlots, dragPreview, timetable, currentSession])
+
+  // Add/remove mouse event listeners for drag
+  useEffect(() => {
+    if (draggingSlots) {
+      window.addEventListener('mousemove', handleMouseMove)
+      window.addEventListener('mouseup', handleMouseUp)
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove)
+        window.removeEventListener('mouseup', handleMouseUp)
+      }
+    }
+  }, [draggingSlots, handleMouseMove, handleMouseUp])
+
+  // Handle move confirmation
+  const confirmMove = async () => {
+    if (!pendingMove || !timetable || !currentSession) return
+
+    const { slots, targetDay, targetStartTime } = pendingMove
+
+    // Calculate time offset
+    const firstSlot = slots[0].slot
+    const firstSlotStartTime = firstSlot.startHour * 60 + firstSlot.startMinute
+    const timeOffset = targetStartTime - firstSlotStartTime
+
+    // Remove old slots (in reverse order to maintain indices)
+    const newTimetable = { ...timetable }
+    newTimetable.schedule = { ...timetable.schedule }
+    
+    const sortedSlots = [...slots].sort((a, b) => b.slotIndex - a.slotIndex)
+    for (const { day, slotIndex, slot } of sortedSlots) {
+      const daySlots = [...(newTimetable.schedule[day] || [])]
+      daySlots.splice(slotIndex, 1)
+      newTimetable.schedule[day] = daySlots
+
+      // Update related timetables
+      await updateRelatedTimetables(slot, day, 'remove')
+    }
+
+    // Add new slots at target position
+    if (!newTimetable.schedule[targetDay]) {
+      newTimetable.schedule[targetDay] = []
+    }
+
+    const targetDaySlots = [...newTimetable.schedule[targetDay]]
+    
+    for (const { slot } of slots) {
+      const originalStartTime = slot.startHour * 60 + slot.startMinute
+      const newStartTime = originalStartTime + timeOffset
+      const newHour = Math.floor(newStartTime / 60)
+      const newMinute = newStartTime % 60
+
+      const movedSlot = {
+        ...slot,
+        startHour: newHour,
+        startMinute: newMinute
+      }
+
+      targetDaySlots.push(movedSlot)
+
+      // Update related timetables
+      await updateRelatedTimetables(movedSlot, targetDay, 'add')
+    }
+
+    // Sort by start time
+    targetDaySlots.sort((a, b) => {
+      const aTime = a.startHour * 60 + a.startMinute
+      const bTime = b.startHour * 60 + b.startMinute
+      return aTime - bTime
+    })
+
+    newTimetable.schedule[targetDay] = targetDaySlots
+    setTimetable(newTimetable)
+
+    // Clear state
+    setShowMoveConfirmation(false)
+    setPendingMove(null)
+    setSelectedSlots([])
+  }
+
+  const cancelMove = () => {
+    setShowMoveConfirmation(false)
+    setPendingMove(null)
+    setMoveConflicts([])
+  }
+
   const handleSlotDelete = async (day: string, slotIndex: number) => {
     if (!timetable || !currentSession) return
 
@@ -993,7 +1365,7 @@ export default function TimetableEditor({
               Timetable Editor
             </h3>
             <p className="text-sm text-gray-500">
-              Click on timeline to add slots • Click on existing slots to edit
+              Click timeline to add • Click slot to edit • Drag to move • Ctrl+Click to multi-select
             </p>
             <p className="text-xs text-gray-400 mt-1">
               Time range: {formatTime(entityTiming.startHour, entityTiming.startMinute)} - {formatTime(entityTiming.endHour, entityTiming.endMinute)}
@@ -1057,7 +1429,7 @@ export default function TimetableEditor({
                 const daySlots = timetable.schedule[day] || []
 
                 return (
-                  <div key={day} className="flex items-center" style={{ height: '80px', minWidth: timelineWidth + 96 }}>
+                  <div key={day} className="flex items-center" style={{ height: '80px', minWidth: timelineWidth + 96 }} data-day-row={day}>
                     {/* Day Label */}
                     <div className="w-24 px-4 text-sm font-medium text-gray-900 border-r border-gray-300 bg-gray-50 sticky left-0 z-10">
                       {day}
@@ -1068,6 +1440,7 @@ export default function TimetableEditor({
                       className="relative h-full bg-gray-50 cursor-pointer"
                       style={{ width: timelineWidth }}
                       onClick={(e) => handleTimelineClick(day, e)}
+                      data-timeline
                     >
                       {/* Background grid lines */}
                       {timeMarkers.map((marker, index) => (
@@ -1078,6 +1451,43 @@ export default function TimetableEditor({
                         />
                       ))}
 
+                      {/* Drag preview */}
+                      {dragPreview && dragPreview.day === day && draggingSlots && (
+                        <>
+                          {draggingSlots.map((dragSlot, idx) => {
+                            const firstSlotStartTime = draggingSlots[0].slot.startHour * 60 + draggingSlots[0].slot.startMinute
+                            const thisSlotStartTime = dragSlot.slot.startHour * 60 + dragSlot.slot.startMinute
+                            const relativeOffset = thisSlotStartTime - firstSlotStartTime
+                            const previewStartTime = dragPreview.startTime + relativeOffset
+                            const previewHour = Math.floor(previewStartTime / 60)
+                            const previewMinute = previewStartTime % 60
+
+                            const previewSlot = {
+                              ...dragSlot.slot,
+                              startHour: previewHour,
+                              startMinute: previewMinute
+                            }
+                            const { left, width } = getSlotPosition(previewSlot)
+
+                            return (
+                              <div
+                                key={idx}
+                                className="absolute top-2 bottom-2 rounded border-2 border-dashed border-blue-500 bg-blue-100 opacity-50 pointer-events-none"
+                                style={{ left, width }}
+                              >
+                                <div className="h-full flex items-center justify-center px-2 text-xs font-medium text-blue-800 overflow-hidden">
+                                  <div className="truncate">
+                                    {previewSlot.type === 'course'
+                                      ? (previewSlot.courseCode || 'Course')
+                                      : (previewSlot.blockerReason || 'Blocked')}
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </>
+                      )}
+
                       {/* Slots */}
                       {daySlots.map((slot, slotIndex) => {
                         if (typeof slot !== 'object' || !('type' in slot)) return null
@@ -1085,18 +1495,37 @@ export default function TimetableEditor({
                         const tSlot = slot as TimetableSlot
                         const { left, width } = getSlotPosition(tSlot)
                         const isSelected = selectedSlot?.day === day && selectedSlot?.slotIndex === slotIndex
+                        const isMultiSelected = selectedSlots.some(s => s.day === day && s.slotIndex === slotIndex)
+                        const isDragging = draggingSlots?.some(s => s.day === day && s.slotIndex === slotIndex)
 
                         return (
                           <div
                             key={slotIndex}
-                            className={`absolute top-2 bottom-2 rounded border-2 cursor-pointer transition-all group ${isSelected ? 'ring-2 ring-blue-500' : ''
-                              } ${getSlotColor(tSlot)}`}
+                            className={`absolute top-2 bottom-2 rounded border-2 cursor-move transition-all group ${
+                              isSelected ? 'ring-2 ring-blue-500' : ''
+                            } ${
+                              isMultiSelected ? 'ring-2 ring-green-500' : ''
+                            } ${
+                              isDragging ? 'opacity-30' : ''
+                            } ${getSlotColor(tSlot)}`}
                             style={{ left, width }}
                             onClick={(e) => {
                               e.stopPropagation()
-                              handleSlotClick(day, slotIndex)
+                              handleSlotClick(day, slotIndex, e)
+                            }}
+                            onMouseDown={(e) => {
+                              if (!readOnly && e.button === 0) {
+                                handleSlotMouseDown(day, slotIndex, e)
+                              }
                             }}
                           >
+                            {/* Multi-select indicator */}
+                            {isMultiSelected && (
+                              <div className="absolute -top-1 -left-1 w-4 h-4 bg-green-500 text-white rounded-full text-xs flex items-center justify-center">
+                                ✓
+                              </div>
+                            )}
+
                             {/* Slot Content */}
                             <div className="h-full flex items-center justify-center px-2 text-xs font-medium text-gray-800 overflow-hidden">
                               <div className="truncate">
@@ -1109,11 +1538,12 @@ export default function TimetableEditor({
                             {/* Delete button */}
                             {!readOnly && (
                               <button
-                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                 onClick={async (e) => {
                                   e.stopPropagation()
                                   await handleSlotDelete(day, slotIndex)
                                 }}
+                                onMouseDown={(e) => e.stopPropagation()}
                               >
                                 ×
                               </button>
@@ -1469,6 +1899,96 @@ export default function TimetableEditor({
           </div>
         </div>
       </div>
+
+      {/* Move Confirmation Dialog */}
+      {showMoveConfirmation && pendingMove && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-white rounded-lg shadow-2xl border-2 border-gray-300 max-w-md w-full p-6 pointer-events-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirm Slot Movement
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Move {pendingMove.slots.length} slot{pendingMove.slots.length > 1 ? 's' : ''} to {pendingMove.targetDay} at{' '}
+              {formatTime(
+                Math.floor(pendingMove.targetStartTime / 60),
+                pendingMove.targetStartTime % 60
+              )}?
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
+              <p className="text-xs text-blue-800 font-medium mb-2">Slots to move:</p>
+              <ul className="text-xs text-blue-700 space-y-1">
+                {pendingMove.slots.map((s, idx) => (
+                  <li key={idx}>
+                    • {s.slot.type === 'course' ? s.slot.courseCode : s.slot.blockerReason} 
+                    {' '}({formatTime(s.slot.startHour, s.slot.startMinute)})
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={confirmMove}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+              >
+                Confirm Move
+              </button>
+              <button
+                onClick={cancelMove}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move Conflicts Dialog */}
+      {moveConflicts.length > 0 && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-white rounded-lg shadow-2xl border-2 border-red-300 max-w-md w-full p-6 pointer-events-auto">
+            <h3 className="text-lg font-semibold text-red-900 mb-4">
+              Cannot Move Slots - Conflicts Detected
+            </h3>
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4 max-h-60 overflow-y-auto">
+              <ul className="text-xs text-red-700 space-y-1">
+                {moveConflicts.map((conflict, idx) => (
+                  <li key={idx}>• {conflict}</li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              The slots have been returned to their original position.
+            </p>
+            <button
+              onClick={() => setMoveConflicts([])}
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Multi-select Info Banner */}
+      {selectedSlots.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-40">
+          <div className="flex items-center space-x-4">
+            <span className="font-medium">
+              {selectedSlots.length} slot{selectedSlots.length > 1 ? 's' : ''} selected
+            </span>
+            <span className="text-sm opacity-90">
+              Drag to move • Ctrl+Click to select more
+            </span>
+            <button
+              onClick={() => setSelectedSlots([])}
+              className="ml-4 px-3 py-1 bg-white text-green-600 rounded text-sm font-medium hover:bg-green-50"
+            >
+              Clear Selection
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

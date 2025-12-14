@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Student, ViewMode, EntityType } from '@/types'
 import StudentList from './StudentList'
 import StudentForm from './StudentForm'
@@ -9,39 +10,76 @@ import TimetableManagement from './TimetableManagement'
 type ExtendedViewMode = ViewMode | 'timetable'
 
 export default function StudentManagement() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [viewMode, setViewMode] = useState<ExtendedViewMode>('list')
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
+  // Load state from URL on mount
+  useEffect(() => {
+    const mode = searchParams.get('mode') as ExtendedViewMode
+    const studentId = searchParams.get('studentId')
+    
+    if (mode && ['list', 'create', 'edit', 'timetable'].includes(mode)) {
+      setViewMode(mode)
+      
+      if (studentId && (mode === 'edit' || mode === 'timetable')) {
+        // Load student data
+        fetch(`/api/students/${studentId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.data) {
+              setSelectedStudent(data.data)
+            }
+          })
+          .catch(err => console.error('Error loading student:', err))
+      }
+    }
+  }, [searchParams])
+
+  const updateURL = (mode: ExtendedViewMode, studentId?: string) => {
+    const params = new URLSearchParams()
+    params.set('mode', mode)
+    if (studentId) params.set('studentId', studentId)
+    router.push(`?${params.toString()}`, { scroll: false })
+  }
+
   const handleCreateNew = () => {
     setSelectedStudent(null)
     setViewMode('create')
+    updateURL('create')
   }
 
   const handleStudentSelect = (student: Student) => {
     setSelectedStudent(student)
     setViewMode('edit')
+    updateURL('edit', student.id)
   }
 
   const handleSave = () => {
     setViewMode('list')
     setSelectedStudent(null)
     setRefreshTrigger(prev => prev + 1)
+    updateURL('list')
   }
 
   const handleCancel = () => {
     setViewMode('list')
     setSelectedStudent(null)
+    updateURL('list')
   }
 
   const handleManageTimetable = (student: Student) => {
     setSelectedStudent(student)
     setViewMode('timetable')
+    updateURL('timetable', student.id)
   }
 
   const handleBackFromTimetable = () => {
     setViewMode('list')
     setSelectedStudent(null)
+    updateURL('list')
   }
 
   return (

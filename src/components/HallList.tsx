@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from '@/contexts/SessionContext'
 import { ApiResponse, Hall } from '@/types'
 
@@ -13,6 +14,8 @@ interface HallListProps {
 
 export default function HallList({ onHallSelect, onCreateNew, onManageTimetable, refreshTrigger }: HallListProps) {
   const { currentSession } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [halls, setHalls] = useState<Hall[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -25,6 +28,18 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
   const [buildings, setBuildings] = useState<string[]>([])
   const [floors, setFloors] = useState<string[]>([])
   const limit = 10
+
+  // Load search state from URL on mount
+  useEffect(() => {
+    const search = searchParams.get('search') || ''
+    const building = searchParams.get('building') || ''
+    const floor = searchParams.get('floor') || ''
+    const page = parseInt(searchParams.get('page') || '1')
+    setSearchTerm(search)
+    setSelectedBuilding(building)
+    setSelectedFloor(floor)
+    setCurrentPage(page)
+  }, [searchParams])
 
   const fetchHalls = async () => {
     if (!currentSession) return
@@ -66,9 +81,43 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
     fetchHalls()
   }, [currentSession, currentPage, searchTerm, selectedBuilding, selectedFloor, refreshTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const updateURL = (search?: string, building?: string, floor?: string, page?: number) => {
+    const params = new URLSearchParams(searchParams)
+    if (search !== undefined) {
+      if (search) {
+        params.set('search', search)
+      } else {
+        params.delete('search')
+      }
+    }
+    if (building !== undefined) {
+      if (building) {
+        params.set('building', building)
+      } else {
+        params.delete('building')
+      }
+    }
+    if (floor !== undefined) {
+      if (floor) {
+        params.set('floor', floor)
+      } else {
+        params.delete('floor')
+      }
+    }
+    if (page !== undefined) {
+      if (page > 1) {
+        params.set('page', page.toString())
+      } else {
+        params.delete('page')
+      }
+    }
+    router.push(`?${params.toString()}`, { scroll: false })
+  }
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     setCurrentPage(1)
+    updateURL(searchTerm, undefined, undefined, 1)
     fetchHalls()
   }
 
@@ -147,7 +196,10 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
           <select
             value={selectedBuilding}
             onChange={(e) => {
-              setSelectedBuilding(e.target.value)
+              const newBuilding = e.target.value
+              setSelectedBuilding(newBuilding)
+              setCurrentPage(1)
+              updateURL(undefined, newBuilding, undefined, 1)
               handleFilterChange()
             }}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -163,7 +215,10 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
           <select
             value={selectedFloor}
             onChange={(e) => {
-              setSelectedFloor(e.target.value)
+              const newFloor = e.target.value
+              setSelectedFloor(newFloor)
+              setCurrentPage(1)
+              updateURL(undefined, undefined, newFloor, 1)
               handleFilterChange()
             }}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -181,6 +236,8 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
               onClick={() => {
                 setSelectedBuilding('')
                 setSelectedFloor('')
+                setCurrentPage(1)
+                updateURL('', '', '', 1)
                 handleFilterChange()
               }}
               className="px-3 py-2 text-gray-600 hover:text-gray-800 transition-colors"
@@ -347,14 +404,22 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
                 <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
                   <div className="flex-1 flex justify-between sm:hidden">
                     <button
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      onClick={() => {
+                        const newPage = Math.max(1, currentPage - 1)
+                        setCurrentPage(newPage)
+                        updateURL(undefined, undefined, undefined, newPage)
+                      }}
                       disabled={currentPage === 1}
                       className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Previous
                     </button>
                     <button
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      onClick={() => {
+                        const newPage = Math.min(totalPages, currentPage + 1)
+                        setCurrentPage(newPage)
+                        updateURL(undefined, undefined, undefined, newPage)
+                      }}
                       disabled={currentPage === totalPages}
                       className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -374,7 +439,11 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
                     <div>
                       <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
                         <button
-                          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                          onClick={() => {
+                            const newPage = Math.max(1, currentPage - 1)
+                            setCurrentPage(newPage)
+                            updateURL(undefined, undefined, undefined, newPage)
+                          }}
                           disabled={currentPage === 1}
                           className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
@@ -394,7 +463,10 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
                           return (
                             <button
                               key={page}
-                              onClick={() => setCurrentPage(page)}
+                              onClick={() => {
+                                setCurrentPage(page)
+                                updateURL(undefined, undefined, undefined, page)
+                              }}
                               className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
                                 page === currentPage
                                   ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
@@ -406,7 +478,11 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
                           )
                         })}
                         <button
-                          onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                          onClick={() => {
+                            const newPage = Math.min(totalPages, currentPage + 1)
+                            setCurrentPage(newPage)
+                            updateURL(undefined, undefined, undefined, newPage)
+                          }}
                           disabled={currentPage === totalPages}
                           className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from '@/contexts/SessionContext'
 import { StudentGroup, StudentGroupFormData, EntityType } from '@/types'
 import { StudentGroupForm } from './StudentGroupForm'
@@ -10,6 +11,8 @@ import TimetableManagement from './TimetableManagement'
 
 export function StudentGroupManagement() {
   const { currentSession } = useSession()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [groups, setGroups] = useState<StudentGroup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -17,6 +20,24 @@ export function StudentGroupManagement() {
   const [managingGroup, setManagingGroup] = useState<StudentGroup | null>(null)
   const [viewingTimetable, setViewingTimetable] = useState<StudentGroup | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Load state from URL on mount
+  useEffect(() => {
+    const mode = searchParams.get('mode')
+    const groupId = searchParams.get('groupId')
+    
+    if (mode === 'timetable' && groupId) {
+      // Load group data for timetable view
+      fetch(`/api/student-groups/${groupId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data) {
+            setViewingTimetable(data.data)
+          }
+        })
+        .catch(err => console.error('Error loading student group:', err))
+    }
+  }, [searchParams])
 
   useEffect(() => {
     if (currentSession) {
@@ -81,6 +102,10 @@ export function StudentGroupManagement() {
 
   const handleViewTimetable = (group: StudentGroup) => {
     setViewingTimetable(group)
+    const params = new URLSearchParams()
+    params.set('mode', 'timetable')
+    params.set('groupId', group.id)
+    router.push(`?${params.toString()}`, { scroll: false })
   }
 
   const handleFormSubmit = async (formData: StudentGroupFormData) => {
@@ -132,6 +157,7 @@ export function StudentGroupManagement() {
 
   const handleBackFromTimetable = () => {
     setViewingTimetable(null)
+    router.push('?', { scroll: false })
   }
 
   if (!currentSession) {

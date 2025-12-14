@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Hall, ViewMode, EntityType } from '@/types'
 import HallList from './HallList'
 import HallForm from './HallForm'
@@ -9,39 +10,76 @@ import TimetableManagement from './TimetableManagement'
 type ExtendedViewMode = ViewMode | 'timetable'
 
 export default function HallManagement() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [viewMode, setViewMode] = useState<ExtendedViewMode>('list')
   const [selectedHall, setSelectedHall] = useState<Hall | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
+  // Load state from URL on mount
+  useEffect(() => {
+    const mode = searchParams.get('mode') as ExtendedViewMode
+    const hallId = searchParams.get('hallId')
+    
+    if (mode && ['list', 'create', 'edit', 'timetable'].includes(mode)) {
+      setViewMode(mode)
+      
+      if (hallId && (mode === 'edit' || mode === 'timetable')) {
+        // Load hall data
+        fetch(`/api/halls/${hallId}`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.data) {
+              setSelectedHall(data.data)
+            }
+          })
+          .catch(err => console.error('Error loading hall:', err))
+      }
+    }
+  }, [searchParams])
+
+  const updateURL = (mode: ExtendedViewMode, hallId?: string) => {
+    const params = new URLSearchParams()
+    params.set('mode', mode)
+    if (hallId) params.set('hallId', hallId)
+    router.push(`?${params.toString()}`, { scroll: false })
+  }
+
   const handleCreateNew = () => {
     setSelectedHall(null)
     setViewMode('create')
+    updateURL('create')
   }
 
   const handleHallSelect = (hall: Hall) => {
     setSelectedHall(hall)
     setViewMode('edit')
+    updateURL('edit', hall.id)
   }
 
   const handleSave = () => {
     setViewMode('list')
     setSelectedHall(null)
     setRefreshTrigger(prev => prev + 1)
+    updateURL('list')
   }
 
   const handleCancel = () => {
     setViewMode('list')
     setSelectedHall(null)
+    updateURL('list')
   }
 
   const handleManageTimetable = (hall: Hall) => {
     setSelectedHall(hall)
     setViewMode('timetable')
+    updateURL('timetable', hall.id)
   }
 
   const handleBackFromTimetable = () => {
     setViewMode('list')
     setSelectedHall(null)
+    updateURL('list')
   }
 
   return (

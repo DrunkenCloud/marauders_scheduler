@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { FacultyGroup } from '@/types'
 
 interface FacultyGroupListProps {
@@ -13,9 +14,21 @@ interface FacultyGroupListProps {
 }
 
 export function FacultyGroupList({ groups, onEdit, onDelete, onManageMembers, onViewTimetable, isLoading }: FacultyGroupListProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [sortBy, setSortBy] = useState<'groupName' | 'memberCount' | 'createdAt'>('groupName')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+
+  // Load search state from URL on mount
+  useEffect(() => {
+    const search = searchParams.get('search') || ''
+    const sort = searchParams.get('sort') as typeof sortBy || 'groupName'
+    const order = searchParams.get('order') as typeof sortOrder || 'asc'
+    setSearchTerm(search)
+    setSortBy(sort)
+    setSortOrder(order)
+  }, [searchParams])
 
   const formatTime = (hour: number, minute: number) => {
     return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
@@ -51,12 +64,33 @@ export function FacultyGroupList({ groups, onEdit, onDelete, onManageMembers, on
       return 0
     })
 
+  const updateURL = (search?: string, sort?: typeof sortBy, order?: typeof sortOrder) => {
+    const params = new URLSearchParams(searchParams)
+    if (search !== undefined) {
+      if (search) {
+        params.set('search', search)
+      } else {
+        params.delete('search')
+      }
+    }
+    if (sort !== undefined) {
+      params.set('sort', sort)
+    }
+    if (order !== undefined) {
+      params.set('order', order)
+    }
+    router.push(`?${params.toString()}`, { scroll: false })
+  }
+
   const handleSort = (field: typeof sortBy) => {
     if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
+      const newOrder = sortOrder === 'asc' ? 'desc' : 'asc'
+      setSortOrder(newOrder)
+      updateURL(undefined, field, newOrder)
     } else {
       setSortBy(field)
       setSortOrder('asc')
+      updateURL(undefined, field, 'asc')
     }
   }
 
@@ -77,7 +111,11 @@ export function FacultyGroupList({ groups, onEdit, onDelete, onManageMembers, on
             type="text"
             placeholder="Search faculty groups..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => {
+              const newSearch = e.target.value
+              setSearchTerm(newSearch)
+              updateURL(newSearch)
+            }}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -88,6 +126,7 @@ export function FacultyGroupList({ groups, onEdit, onDelete, onManageMembers, on
               const [field, order] = e.target.value.split('-') as [typeof sortBy, typeof sortOrder]
               setSortBy(field)
               setSortOrder(order)
+              updateURL(undefined, field, order)
             }}
             className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
