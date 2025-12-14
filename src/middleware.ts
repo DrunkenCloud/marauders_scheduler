@@ -3,9 +3,10 @@ import { verify } from '@/lib/jwt'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/api/auth/login']
+  // Public routes that don't require authentication (respect basePath)
+  const publicRoutes = [`${basePath}/login`, `${basePath}/api/auth/login`]
   
   // Check if the current path is public
   if (publicRoutes.includes(pathname)) {
@@ -13,34 +14,36 @@ export async function middleware(request: NextRequest) {
   }
 
   // For admin routes, check authentication
-  if (pathname.startsWith('/admin')) {
+  if (pathname.startsWith(`${basePath}/admin`) || (!basePath && pathname.startsWith('/admin'))) {
     const token = request.cookies.get('auth-token')?.value
 
     if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return NextResponse.redirect(new URL(`${basePath}/login`, request.url))
     }
 
     try {
       const userSession = await verify(token)
       
       if (!userSession) {
-        return NextResponse.redirect(new URL('/login', request.url))
+        return NextResponse.redirect(new URL(`${basePath}/login`, request.url))
       }
 
       // Check if user has admin role for admin routes
       if (userSession.role !== 'admin') {
-        return NextResponse.redirect(new URL('/login', request.url))
+        return NextResponse.redirect(new URL(`${basePath}/login`, request.url))
       }
 
       return NextResponse.next()
     } catch (error) {
       console.error('Middleware auth error:', error)
-      return NextResponse.redirect(new URL('/login', request.url))
+      return NextResponse.redirect(new URL(`${basePath}/login`, request.url))
     }
   }
 
-  // For API routes that require authentication
-  if (pathname.startsWith('/api/') && !pathname.startsWith('/api/auth/')) {
+  // For API routes that require authentication (respect basePath)
+  const apiPrefix = `${basePath}/api/`
+  const apiAuthPrefix = `${basePath}/api/auth/`
+  if (pathname.startsWith(apiPrefix) && !pathname.startsWith(apiAuthPrefix)) {
     const token = request.cookies.get('auth-token')?.value
 
     if (!token) {
