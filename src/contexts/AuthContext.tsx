@@ -13,6 +13,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [user, setUser] = useState<UserSession | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -23,7 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkSession = async () => {
     try {
-      const response = await fetch('/api/auth/session')
+      const response = await fetch(`${basePath}/api/auth/session`)
       if (response.ok) {
         const data = await response.json()
         if (data.success && data.user) {
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch(`${basePath}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
+      await fetch(`${basePath}/api/auth/logout`, { method: 'POST' })
     } catch (error) {
       console.error('Logout error:', error)
     } finally {

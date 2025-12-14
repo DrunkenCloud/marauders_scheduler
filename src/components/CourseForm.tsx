@@ -37,6 +37,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
   const [hallGroups, setHallGroups] = useState<HallGroup[]>([])
   const [loadingData, setLoadingData] = useState(false)
 
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const isEditing = !!course
 
   // Load reference data
@@ -47,12 +48,12 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
       setLoadingData(true)
       try {
         const [facultyRes, hallsRes, studentsRes, studentGroupsRes, facultyGroupsRes, hallGroupsRes] = await Promise.all([
-          fetch(`/api/faculty?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/halls?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/students?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/student-groups?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/faculty-groups?sessionId=${currentSession.id}&limit=1000`),
-          fetch(`/api/hall-groups?sessionId=${currentSession.id}&limit=1000`)
+          fetch(`${basePath}/api/faculty?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`${basePath}/api/halls?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`${basePath}/api/students?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`${basePath}/api/student-groups?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`${basePath}/api/faculty-groups?sessionId=${currentSession.id}&limit=1000`),
+          fetch(`${basePath}/api/hall-groups?sessionId=${currentSession.id}&limit=1000`)
         ])
 
         const [facultyData, hallsData, studentsData, studentGroupsData, facultyGroupsData, hallGroupsData] = await Promise.all([
@@ -150,7 +151,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
       setLoading(true)
       setError(null)
 
-      const url = isEditing ? `/api/courses/${course.id}` : '/api/courses'
+      const url = isEditing ? `${basePath}/api/courses/${course.id}` : `${basePath}/api/courses`
       const method = isEditing ? 'PUT' : 'POST'
       
       const body: any = {

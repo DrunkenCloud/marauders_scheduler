@@ -11,6 +11,7 @@ type CourseViewMode = ViewMode | 'timetable'
 
 export default function CourseManagement() {
   const [viewMode, setViewMode] = useState<CourseViewMode>('list')
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
@@ -44,7 +45,7 @@ export default function CourseManagement() {
     if (!selectedCourse) return
 
     try {
-      const response = await fetch('/api/timetables', {
+      const response = await fetch(`${basePath}/api/timetables`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

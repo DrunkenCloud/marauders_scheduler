@@ -19,6 +19,7 @@ export default function CourseScheduling() {
   const [scheduling, setScheduling] = useState(false)
   const [scheduledSlots, setScheduledSlots] = useState<any[]>([])
   const [schedulingResult, setSchedulingResult] = useState<any>(null)
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [committing, setCommitting] = useState(false)
 
   // Load courses
@@ -28,7 +29,7 @@ export default function CourseScheduling() {
     const loadCourses = async () => {
       setLoading(true)
       try {
-        const response = await fetch(`/api/courses?sessionId=${currentSession.id}&limit=1000`)
+        const response = await fetch(`${basePath}/api/courses?sessionId=${currentSession.id}&limit=1000`)
         const data = await response.json()
         if (data.success) {
           setCourses(data.data.courses || [])
@@ -136,7 +137,7 @@ export default function CourseScheduling() {
         }
       }
 
-      const response = await fetch('/api/schedule-all', {
+      const response = await fetch(`${basePath}/api/schedule-all`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -180,7 +181,7 @@ export default function CourseScheduling() {
 
     setCommitting(true)
     try {
-      const response = await fetch('/api/schedule-all/commit', {
+      const response = await fetch(`${basePath}/api/schedule-all/commit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -203,7 +204,7 @@ export default function CourseScheduling() {
         setCourseConfigs({})
 
         // Reload courses to show updated scheduled counts
-        const coursesResponse = await fetch(`/api/courses?sessionId=${currentSession.id}&limit=1000`)
+        const coursesResponse = await fetch(`${basePath}/api/courses?sessionId=${currentSession.id}&limit=1000`)
         const coursesData = await coursesResponse.json()
         if (coursesData.success) {
           setCourses(coursesData.data.courses || [])

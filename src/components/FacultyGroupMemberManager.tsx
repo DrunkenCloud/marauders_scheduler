@@ -28,6 +28,7 @@ export function FacultyGroupMemberManager({
   const [members, setMembers] = useState<GroupMember[]>([])
   const [availableFaculty, setAvailableFaculty] = useState<Faculty[]>([])
   const [selectedFaculty, setSelectedFaculty] = useState<string[]>([])
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -42,14 +43,14 @@ export function FacultyGroupMemberManager({
     setIsLoading(true)
     try {
       // Load current members
-      const membersResponse = await fetch(`/api/faculty-groups/${group.id}/members`)
+      const membersResponse = await fetch(`${basePath}/api/faculty-groups/${group.id}/members`)
       if (membersResponse.ok) {
         const membersData = await membersResponse.json()
         setMembers(membersData.data || [])
       }
 
       // Load all faculty in session
-      const facultyResponse = await fetch(`/api/faculty?sessionId=${sessionId}`)
+      const facultyResponse = await fetch(`${basePath}/api/faculty?sessionId=${sessionId}`)
       if (facultyResponse.ok) {
         const facultyData = await facultyResponse.json()
         console.log(facultyData);
@@ -71,7 +72,7 @@ export function FacultyGroupMemberManager({
 
     setIsUpdating(true)
     try {
-      const response = await fetch(`/api/faculty-groups/${group.id}/members`, {
+      const response = await fetch(`${basePath}/api/faculty-groups/${group.id}/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -107,7 +108,7 @@ export function FacultyGroupMemberManager({
 
     setIsUpdating(true)
     try {
-      const response = await fetch(`/api/faculty-groups/${group.id}/members`, {
+      const response = await fetch(`${basePath}/api/faculty-groups/${group.id}/members`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

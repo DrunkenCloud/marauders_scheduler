@@ -15,6 +15,7 @@ export default function StudentForm({ student, onSave, onCancel }: StudentFormPr
   const { currentSession } = useSession()
   const [digitalId, setDigitalId] = useState('')
   const [startHour, setStartHour] = useState(8)
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [startMinute, setStartMinute] = useState(10)
   const [endHour, setEndHour] = useState(15)
   const [endMinute, setEndMinute] = useState(30)
@@ -63,7 +64,7 @@ export default function StudentForm({ student, onSave, onCancel }: StudentFormPr
       setLoading(true)
       setError(null)
 
-      const url = isEditing ? `/api/students/${student.id}` : '/api/students'
+      const url = isEditing ? `${basePath}/api/students/${student.id}` : `${basePath}/api/students`
       const method = isEditing ? 'PUT' : 'POST'
       
       const body: any = {

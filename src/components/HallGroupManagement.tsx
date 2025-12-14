@@ -16,6 +16,7 @@ export function HallGroupManagement() {
   const [groups, setGroups] = useState<HallGroup[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [editingGroup, setEditingGroup] = useState<HallGroup | null>(null)
   const [managingGroup, setManagingGroup] = useState<HallGroup | null>(null)
   const [viewingTimetable, setViewingTimetable] = useState<HallGroup | null>(null)
@@ -28,7 +29,7 @@ export function HallGroupManagement() {
     
     if (mode === 'timetable' && groupId) {
       // Load group data for timetable view
-      fetch(`/api/hall-groups/${groupId}`)
+      fetch(`${basePath}/api/hall-groups/${groupId}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data) {
@@ -50,7 +51,7 @@ export function HallGroupManagement() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/hall-groups?sessionId=${currentSession.id}`)
+      const response = await fetch(`${basePath}/api/hall-groups?sessionId=${currentSession.id}`)
       if (response.ok) {
         const data = await response.json()
         setGroups(data.data || [])
@@ -80,7 +81,7 @@ export function HallGroupManagement() {
     }
 
     try {
-      const response = await fetch(`/api/hall-groups/${group.id}`, {
+      const response = await fetch(`${basePath}/api/hall-groups/${group.id}`, {
         method: 'DELETE'
       })
 
@@ -114,8 +115,8 @@ export function HallGroupManagement() {
     setIsSubmitting(true)
     try {
       const url = editingGroup 
-        ? `/api/hall-groups/${editingGroup.id}`
-        : '/api/hall-groups'
+        ? `${basePath}/api/hall-groups/${editingGroup.id}`
+        : `${basePath}/api/hall-groups`
       
       const method = editingGroup ? 'PUT' : 'POST'
       

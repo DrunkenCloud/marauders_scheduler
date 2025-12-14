@@ -11,6 +11,7 @@ type ExtendedViewMode = ViewMode | 'timetable'
 
 export default function HallManagement() {
   const router = useRouter()
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const searchParams = useSearchParams()
   const [viewMode, setViewMode] = useState<ExtendedViewMode>('list')
   const [selectedHall, setSelectedHall] = useState<Hall | null>(null)
@@ -26,7 +27,7 @@ export default function HallManagement() {
       
       if (hallId && (mode === 'edit' || mode === 'timetable')) {
         // Load hall data
-        fetch(`/api/halls/${hallId}`)
+        fetch(`${basePath}/api/halls/${hallId}`)
           .then(res => res.json())
           .then(data => {
             if (data.success && data.data) {

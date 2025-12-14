@@ -17,6 +17,7 @@ export default function FacultyList({ onFacultySelect, onCreateNew, onManageTime
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
@@ -36,7 +37,7 @@ export default function FacultyList({ onFacultySelect, onCreateNew, onManageTime
         ...(searchTerm && { search: searchTerm })
       })
 
-      const response = await fetch(`/api/faculty?${params}`)
+      const response = await fetch(`${basePath}/api/faculty?${params}`)
       const result: ApiResponse = await response.json()
 
       if (result.success && result.data) {
@@ -70,7 +71,7 @@ export default function FacultyList({ onFacultySelect, onCreateNew, onManageTime
     }
 
     try {
-      const response = await fetch(`/api/faculty/${facultyMember.id}`, {
+      const response = await fetch(`${basePath}/api/faculty/${facultyMember.id}`, {
         method: 'DELETE'
       })
       const result: ApiResponse = await response.json()

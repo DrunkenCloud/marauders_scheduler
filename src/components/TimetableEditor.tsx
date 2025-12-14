@@ -35,6 +35,7 @@ export default function TimetableEditor({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   // Drag and drop state
   const [selectedSlots, setSelectedSlots] = useState<Array<{ day: string; slotIndex: number }>>([])
   const [draggingSlots, setDraggingSlots] = useState<Array<{ day: string; slotIndex: number; slot: TimetableSlot }> | null>(null)
@@ -113,7 +114,7 @@ export default function TimetableEditor({
 
     setLoading(true)
     try {
-      const coursesRes = await fetch(`/api/courses?sessionId=${currentSession.id}&limit=1000`)
+      const coursesRes = await fetch(`${basePath}/api/courses?sessionId=${currentSession.id}&limit=1000`)
       const coursesData = await coursesRes.json()
       if (coursesData.success) {
         const courses = coursesData.data.courses || []
@@ -142,7 +143,7 @@ export default function TimetableEditor({
 
     setLoadingCourses(true)
     try {
-      const response = await fetch(`/api/courses/available?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
+      const response = await fetch(`${basePath}/api/courses/available?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
@@ -217,7 +218,7 @@ export default function TimetableEditor({
     // Check conflicts for each related entity
     for (const entity of allEntityIds) {
       try {
-        const response = await fetch(`/api/timetables?entityType=${entity.type}&entityId=${entity.id}&sessionId=${currentSession.id}`)
+        const response = await fetch(`${basePath}/api/timetables?entityType=${entity.type}&entityId=${entity.id}&sessionId=${currentSession.id}`)
         if (response.ok) {
           const data = await response.json()
           if (data.success && data.data.timetable) {
@@ -314,7 +315,7 @@ export default function TimetableEditor({
     // Check conflicts for each related entity
     for (const entity of allEntityIds) {
       try {
-        const response = await fetch(`/api/timetables?entityType=${entity.type}&entityId=${entity.id}&sessionId=${currentSession.id}`)
+        const response = await fetch(`${basePath}/api/timetables?entityType=${entity.type}&entityId=${entity.id}&sessionId=${currentSession.id}`)
         if (response.ok) {
           const data = await response.json()
           if (data.success && data.data.timetable) {
@@ -457,25 +458,25 @@ export default function TimetableEditor({
   // Helper function to get entity name for conflict messages
   const getEntityName = async (entityType: string, entityId: string): Promise<string> => {
     try {
-      let endpoint = ''
+      let endpoint = `${basePath}`
       switch (entityType) {
         case 'faculty':
-          endpoint = `/api/faculty/${entityId}`
+          endpoint = `${basePath}/api/faculty/${entityId}`
           break
         case 'hall':
-          endpoint = `/api/halls/${entityId}`
+          endpoint = `${basePath}/api/halls/${entityId}`
           break
         case 'student':
-          endpoint = `/api/students/${entityId}`
+          endpoint = `${basePath}/api/students/${entityId}`
           break
         case 'facultyGroup':
-          endpoint = `/api/faculty-groups/${entityId}`
+          endpoint = `${basePath}/api/faculty-groups/${entityId}`
           break
         case 'hallGroup':
-          endpoint = `/api/hall-groups/${entityId}`
+          endpoint = `${basePath}/api/hall-groups/${entityId}`
           break
         case 'studentGroup':
-          endpoint = `/api/student-groups/${entityId}`
+          endpoint = `${basePath}/api/student-groups/${entityId}`
           break
         default:
           return `${entityType} ${entityId}`
@@ -507,7 +508,7 @@ export default function TimetableEditor({
   // Update course scheduled count
   const updateCourseScheduledCount = async (courseId: string, increment: number): Promise<boolean> => {
     try {
-      const response = await fetch(`/api/courses/${courseId}/scheduled-count`, {
+      const response = await fetch(`${basePath}/api/courses/${courseId}/scheduled-count`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ increment })
@@ -958,7 +959,7 @@ export default function TimetableEditor({
     const updateEntityTimetable = async (entityType: string, entityId: string) => {
       try {
         // Get current timetable
-        const response = await fetch(`/api/timetables?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
+        const response = await fetch(`${basePath}/api/timetables?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`)
         if (response.ok) {
           const data = await response.json()
           if (data.success) {
@@ -1005,7 +1006,7 @@ export default function TimetableEditor({
             entityTimetable[day] = daySlots
 
             // Save updated timetable
-            await fetch('/api/timetables', {
+            await fetch(`${basePath}/api/timetables`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1034,20 +1035,20 @@ export default function TimetableEditor({
 
     for (const groupEntity of groupEntities) {
       try {
-        let membersEndpoint = ''
+        let membersEndpoint = `${basePath}`
         let memberType = ''
 
         switch (groupEntity.type) {
           case 'facultyGroup':
-            membersEndpoint = `/api/faculty-groups/${groupEntity.id}`
+            membersEndpoint = `${basePath}/api/faculty-groups/${groupEntity.id}`
             memberType = 'faculty'
             break
           case 'hallGroup':
-            membersEndpoint = `/api/hall-groups/${groupEntity.id}`
+            membersEndpoint = `${basePath}/api/hall-groups/${groupEntity.id}`
             memberType = 'hall'
             break
           case 'studentGroup':
-            membersEndpoint = `/api/student-groups/${groupEntity.id}`
+            membersEndpoint = `${basePath}/api/student-groups/${groupEntity.id}`
             memberType = 'student'
             break
         }

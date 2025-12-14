@@ -14,6 +14,7 @@ export default function HallForm({ hall, onSave, onCancel }: HallFormProps) {
   const { currentSession } = useSession()
   const [name, setName] = useState('')
   const [floor, setFloor] = useState('')
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [building, setBuilding] = useState('')
   const [shortForm, setShortForm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -63,7 +64,7 @@ export default function HallForm({ hall, onSave, onCancel }: HallFormProps) {
       setLoading(true)
       setError(null)
 
-      const url = isEditing ? `/api/halls/${hall.id}` : '/api/halls'
+      const url = isEditing ? `${basePath}/api/halls/${hall.id}` : `${basePath}/api/halls`
       const method = isEditing ? 'PUT' : 'POST'
       
       const body: any = {

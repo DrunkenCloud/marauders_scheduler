@@ -30,6 +30,7 @@ export function StudentGroupMemberManager({
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [isUpdating, setIsUpdating] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [activeTab, setActiveTab] = useState<'current' | 'add'>('current')
@@ -42,14 +43,14 @@ export function StudentGroupMemberManager({
     setIsLoading(true)
     try {
       // Load current members
-      const membersResponse = await fetch(`/api/student-groups/${group.id}/members`)
+      const membersResponse = await fetch(`${basePath}/api/student-groups/${group.id}/members`)
       if (membersResponse.ok) {
         const membersData = await membersResponse.json()
         setMembers(membersData.data || [])
       }
 
       // Load all students in session
-      const studentsResponse = await fetch(`/api/students?sessionId=${sessionId}`)
+      const studentsResponse = await fetch(`${basePath}/api/students?sessionId=${sessionId}`)
       if (studentsResponse.ok) {
         const studentsData = await studentsResponse.json()
         setAvailableStudents((studentsData.data.students) ? studentsData.data.students : [])
@@ -70,7 +71,7 @@ export function StudentGroupMemberManager({
 
     setIsUpdating(true)
     try {
-      const response = await fetch(`/api/student-groups/${group.id}/members`, {
+      const response = await fetch(`${basePath}/api/student-groups/${group.id}/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -106,7 +107,7 @@ export function StudentGroupMemberManager({
 
     setIsUpdating(true)
     try {
-      const response = await fetch(`/api/student-groups/${group.id}/members`, {
+      const response = await fetch(`${basePath}/api/student-groups/${group.id}/members`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

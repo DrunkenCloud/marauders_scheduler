@@ -12,6 +12,7 @@ type ExtendedViewMode = ViewMode | 'timetable'
 export default function StudentManagement() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [viewMode, setViewMode] = useState<ExtendedViewMode>('list')
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -26,7 +27,7 @@ export default function StudentManagement() {
       
       if (studentId && (mode === 'edit' || mode === 'timetable')) {
         // Load student data
-        fetch(`/api/students/${studentId}`)
+        fetch(`${basePath}/api/students/${studentId}`)
           .then(res => res.json())
           .then(data => {
             if (data.success && data.data) {

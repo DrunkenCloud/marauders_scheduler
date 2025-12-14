@@ -19,6 +19,7 @@ export default function TimetableManagement({
   entityName,
   onBack
 }: TimetableManagementProps) {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const { currentSession } = useSession()
   const [timetable, setTimetable] = useState<EntityTimetable | null>(null)
   const [entityTiming, setEntityTiming] = useState<any>(null)
@@ -35,7 +36,7 @@ export default function TimetableManagement({
 
       try {
         const response = await fetch(
-          `/api/timetables?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`
+          `${basePath}/api/timetables?entityType=${entityType}&entityId=${entityId}&sessionId=${currentSession.id}`
         )
 
         const data = await response.json()
@@ -61,7 +62,7 @@ export default function TimetableManagement({
     if (!currentSession) return
 
     try {
-      const response = await fetch('/api/timetables', {
+      const response = await fetch(`${basePath}/api/timetables`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json'

@@ -28,6 +28,7 @@ export function HallGroupMemberManager({
   const [members, setMembers] = useState<GroupMember[]>([])
   const [availableHalls, setAvailableHalls] = useState<Hall[]>([])
   const [selectedHalls, setSelectedHalls] = useState<string[]>([])
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -43,14 +44,14 @@ export function HallGroupMemberManager({
     setIsLoading(true)
     try {
       // Load current members
-      const membersResponse = await fetch(`/api/hall-groups/${group.id}/members`)
+      const membersResponse = await fetch(`${basePath}/api/hall-groups/${group.id}/members`)
       if (membersResponse.ok) {
         const membersData = await membersResponse.json()
         setMembers(membersData.data || [])
       }
 
       // Load all halls in session
-      const hallsResponse = await fetch(`/api/halls?sessionId=${sessionId}`)
+      const hallsResponse = await fetch(`${basePath}/api/halls?sessionId=${sessionId}`)
       if (hallsResponse.ok) {
         const hallsData = await hallsResponse.json()
         setAvailableHalls(hallsData.data.halls || [])
@@ -71,7 +72,7 @@ export function HallGroupMemberManager({
 
     setIsUpdating(true)
     try {
-      const response = await fetch(`/api/hall-groups/${group.id}/members`, {
+      const response = await fetch(`${basePath}/api/hall-groups/${group.id}/members`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -107,7 +108,7 @@ export function HallGroupMemberManager({
 
     setIsUpdating(true)
     try {
-      const response = await fetch(`/api/hall-groups/${group.id}/members`, {
+      const response = await fetch(`${basePath}/api/hall-groups/${group.id}/members`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

@@ -12,6 +12,7 @@ import TimetableManagement from './TimetableManagement'
 export function StudentGroupManagement() {
   const { currentSession } = useSession()
   const router = useRouter()
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const searchParams = useSearchParams()
   const [groups, setGroups] = useState<StudentGroup[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -28,7 +29,7 @@ export function StudentGroupManagement() {
     
     if (mode === 'timetable' && groupId) {
       // Load group data for timetable view
-      fetch(`/api/student-groups/${groupId}`)
+      fetch(`${basePath}/api/student-groups/${groupId}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data) {
@@ -50,7 +51,7 @@ export function StudentGroupManagement() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/student-groups?sessionId=${currentSession.id}`)
+      const response = await fetch(`${basePath}/api/student-groups?sessionId=${currentSession.id}`)
       if (response.ok) {
         const data = await response.json()
         setGroups(data.data || [])
@@ -80,7 +81,7 @@ export function StudentGroupManagement() {
     }
 
     try {
-      const response = await fetch(`/api/student-groups/${group.id}`, {
+      const response = await fetch(`${basePath}/api/student-groups/${group.id}`, {
         method: 'DELETE'
       })
 
@@ -114,8 +115,8 @@ export function StudentGroupManagement() {
     setIsSubmitting(true)
     try {
       const url = editingGroup
-        ? `/api/student-groups/${editingGroup.id}`
-        : '/api/student-groups'
+        ? `${basePath}/api/student-groups/${editingGroup.id}`
+        : `${basePath}/api/student-groups`
 
       const method = editingGroup ? 'PUT' : 'POST'
 

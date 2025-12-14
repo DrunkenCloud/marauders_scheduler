@@ -18,6 +18,7 @@ export function FacultyGroupManagement() {
   const [showForm, setShowForm] = useState(false)
   const [editingGroup, setEditingGroup] = useState<FacultyGroup | null>(null)
   const [managingGroup, setManagingGroup] = useState<FacultyGroup | null>(null)
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [viewingTimetable, setViewingTimetable] = useState<FacultyGroup | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -28,7 +29,7 @@ export function FacultyGroupManagement() {
     
     if (mode === 'timetable' && groupId) {
       // Load group data for timetable view
-      fetch(`/api/faculty-groups/${groupId}`)
+      fetch(`${basePath}/api/faculty-groups/${groupId}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data) {
@@ -50,7 +51,7 @@ export function FacultyGroupManagement() {
 
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/faculty-groups?sessionId=${currentSession.id}`)
+      const response = await fetch(`${basePath}/api/faculty-groups?sessionId=${currentSession.id}`)
       if (response.ok) {
         const data = await response.json()
         setGroups(data.data || [])
@@ -80,7 +81,7 @@ export function FacultyGroupManagement() {
     }
 
     try {
-      const response = await fetch(`/api/faculty-groups/${group.id}`, {
+      const response = await fetch(`${basePath}/api/faculty-groups/${group.id}`, {
         method: 'DELETE'
       })
 
@@ -114,8 +115,8 @@ export function FacultyGroupManagement() {
     setIsSubmitting(true)
     try {
       const url = editingGroup 
-        ? `/api/faculty-groups/${editingGroup.id}`
-        : '/api/faculty-groups'
+        ? `${basePath}/api/faculty-groups/${editingGroup.id}`
+        : `${basePath}/api/faculty-groups`
       
       const method = editingGroup ? 'PUT' : 'POST'
       

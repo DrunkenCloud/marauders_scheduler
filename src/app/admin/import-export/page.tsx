@@ -12,7 +12,7 @@ export default function ImportExportPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [importStats, setImportStats] = useState<any>(null)
-
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const handleImport = async () => {
     if (!currentSession) {
       setMessage({ type: 'error', text: 'No active session selected' })
@@ -26,7 +26,7 @@ export default function ImportExportPage() {
 
       const data = JSON.parse(jsonInput)
 
-      const response = await fetch('/api/import-session', {
+      const response = await fetch(`${basePath}/api/import-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -61,7 +61,7 @@ export default function ImportExportPage() {
       setExporting(true)
       setMessage(null)
 
-      const response = await fetch(`/api/export-session?sessionId=${currentSession.id}`)
+      const response = await fetch(`${basePath}/api/export-session?sessionId=${currentSession.id}`)
       const data = await response.json()
 
       if (!response.ok) {
@@ -113,7 +113,7 @@ export default function ImportExportPage() {
       setMessage(null)
       setImportStats(null)
 
-      const response = await fetch(`/api/clear-session?sessionId=${currentSession.id}`, {
+      const response = await fetch(`${basePath}/api/clear-session?sessionId=${currentSession.id}`, {
         method: 'DELETE'
       })
 

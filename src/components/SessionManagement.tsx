@@ -12,6 +12,7 @@ interface SessionManagementProps {
 
 export default function SessionManagement({ isOpen, onClose }: SessionManagementProps) {
   const { sessions, currentSession, setCurrentSession, deleteSession, error } = useSession()
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false)
   const [sessionModalMode, setSessionModalMode] = useState<'create' | 'edit'>('create')
   const [editingSession, setEditingSession] = useState<SessionConfig | null>(null)
@@ -68,7 +69,7 @@ export default function SessionManagement({ isOpen, onClose }: SessionManagement
       setCopyingFromSessionId(sourceSessionId)
       
       try {
-        const response = await fetch('/api/sessions/copy', {
+        const response = await fetch(`${basePath}/api/sessions/copy`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

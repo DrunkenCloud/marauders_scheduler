@@ -69,6 +69,7 @@ export default function CourseList({ onCourseSelect, onTimetableView, onCreateNe
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const limit = 10
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   const fetchCourses = async () => {
     if (!currentSession) return
@@ -84,7 +85,7 @@ export default function CourseList({ onCourseSelect, onTimetableView, onCreateNe
         ...(searchTerm && { search: searchTerm })
       })
 
-      const response = await fetch(`/api/courses?${params}`)
+      const response = await fetch(`${basePath}/api/courses?${params}`)
       const result: ApiResponse = await response.json()
 
       if (result.success && result.data) {
@@ -118,7 +119,7 @@ export default function CourseList({ onCourseSelect, onTimetableView, onCreateNe
     }
 
     try {
-      const response = await fetch(`/api/courses/${course.id}`, {
+      const response = await fetch(`${basePath}/api/courses/${course.id}`, {
         method: 'DELETE'
       })
       const result: ApiResponse = await response.json()

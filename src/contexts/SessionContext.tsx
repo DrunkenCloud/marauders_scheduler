@@ -31,6 +31,7 @@ interface SessionProviderProps {
 
 export function SessionProvider({ children }: SessionProviderProps) {
   const [currentSession, setCurrentSession] = useState<SessionConfig | null>(null)
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [sessions, setSessions] = useState<SessionConfig[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -40,7 +41,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
       setIsLoading(true)
       setError(null)
       
-      const response = await fetch('/api/sessions')
+      const response = await fetch(`${basePath}/api/sessions`)
       const result: ApiResponse<SessionConfig[]> = await response.json()
       
       if (result.success && result.data) {
@@ -65,7 +66,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     try {
       setError(null)
       
-      const response = await fetch('/api/sessions', {
+      const response = await fetch(`${basePath}/api/sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,7 +94,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     try {
       setError(null)
       
-      const response = await fetch(`/api/sessions/${id}`, {
+      const response = await fetch(`${basePath}/api/sessions/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -127,7 +128,7 @@ export function SessionProvider({ children }: SessionProviderProps) {
     try {
       setError(null)
       
-      const response = await fetch(`/api/sessions/${id}`, {
+      const response = await fetch(`${basePath}/api/sessions/${id}`, {
         method: 'DELETE',
       })
       

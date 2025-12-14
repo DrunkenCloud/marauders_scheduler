@@ -15,6 +15,7 @@ interface HallListProps {
 export default function HallList({ onHallSelect, onCreateNew, onManageTimetable, refreshTrigger }: HallListProps) {
   const { currentSession } = useSession()
   const router = useRouter()
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const searchParams = useSearchParams()
   const [halls, setHalls] = useState<Hall[]>([])
   const [loading, setLoading] = useState(true)
@@ -57,7 +58,7 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
         ...(selectedFloor && { floor: selectedFloor })
       })
 
-      const response = await fetch(`/api/halls?${params}`)
+      const response = await fetch(`${basePath}/api/halls?${params}`)
       const result: ApiResponse = await response.json()
 
       if (result.success && result.data) {
@@ -132,7 +133,7 @@ export default function HallList({ onHallSelect, onCreateNew, onManageTimetable,
     }
 
     try {
-      const response = await fetch(`/api/halls/${hall.id}`, {
+      const response = await fetch(`${basePath}/api/halls/${hall.id}`, {
         method: 'DELETE'
       })
       const result: ApiResponse = await response.json()

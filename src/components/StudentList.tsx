@@ -16,6 +16,7 @@ export default function StudentList({ onStudentSelect, onCreateNew, onManageTime
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
@@ -36,7 +37,7 @@ export default function StudentList({ onStudentSelect, onCreateNew, onManageTime
         ...(searchTerm && { search: searchTerm })
       })
 
-      const response = await fetch(`/api/students?${params}`)
+      const response = await fetch(`${basePath}/api/students?${params}`)
       const result: ApiResponse = await response.json()
 
       if (result.success && result.data) {
@@ -70,7 +71,7 @@ export default function StudentList({ onStudentSelect, onCreateNew, onManageTime
     }
 
     try {
-      const response = await fetch(`/api/students/${student.id}`, {
+      const response = await fetch(`${basePath}/api/students/${student.id}`, {
         method: 'DELETE'
       })
       const result: ApiResponse = await response.json()

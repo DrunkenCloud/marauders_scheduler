@@ -13,6 +13,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+  basePath: '/schedule',
 }
 
 module.exports = nextConfig

@@ -7,6 +7,7 @@ import { ApiResponse, DashboardStats, StatCard } from '@/types'
 export default function StatsCards() {
   const { currentSession } = useSession()
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -22,7 +23,7 @@ export default function StatsCards() {
         setIsLoading(true)
         setError(null)
 
-        const response = await fetch(`/api/stats?sessionId=${currentSession.id}`)
+        const response = await fetch(`${basePath}/api/stats?sessionId=${currentSession.id}`)
         const result: ApiResponse<DashboardStats> = await response.json()
 
         if (result.success && result.data) {
