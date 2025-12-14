@@ -259,7 +259,17 @@ export default function TimetableEditor({
                     conflictDescription = existingSlot.blockerReason || 'Blocked time'
                   }
 
-                  conflicts.push(`${entityName} is already scheduled: ${conflictDescription} (${conflictTime})`)
+                  // Get detailed entity information for both slots
+                  const newSlotEntities = await getSlotEntitiesDescription(slot)
+                  const existingSlotEntities = await getSlotEntitiesDescription(existingSlot)
+
+                  conflicts.push(
+                    `⚠️ ${entityName} conflict at ${conflictTime}\n` +
+                    `   Existing: ${conflictDescription}\n` +
+                    `   ${existingSlotEntities}\n` +
+                    `   New slot: ${slot.type === 'course' ? slot.courseCode : slot.blockerReason}\n` +
+                    `   ${newSlotEntities}`
+                  )
                 }
               }
             }
@@ -346,7 +356,17 @@ export default function TimetableEditor({
                     conflictDescription = existingSlot.blockerReason || 'Blocked time'
                   }
 
-                  conflicts.push(`${entityName} is already scheduled: ${conflictDescription} (${conflictTime})`)
+                  // Get detailed entity information for both slots
+                  const newSlotEntities = await getSlotEntitiesDescription(slot)
+                  const existingSlotEntities = await getSlotEntitiesDescription(existingSlot)
+
+                  conflicts.push(
+                    `⚠️ ${entityName} conflict at ${conflictTime}\n` +
+                    `   Existing: ${conflictDescription}\n` +
+                    `   ${existingSlotEntities}\n` +
+                    `   New slot: ${slot.type === 'course' ? slot.courseCode : slot.blockerReason}\n` +
+                    `   ${newSlotEntities}`
+                  )
                 }
               }
             }
@@ -359,6 +379,80 @@ export default function TimetableEditor({
 
     return conflicts
   }, [currentSession, entityType, entityId])
+
+  // Helper function to get detailed slot entities description
+  const getSlotEntitiesDescription = async (slot: TimetableSlot): Promise<string> => {
+    const parts: string[] = []
+
+    // Faculties
+    if (slot.facultyIds && slot.facultyIds.length > 0) {
+      const facultyNames = await Promise.all(
+        slot.facultyIds.map(async id => {
+          const name = await getEntityName('faculty', id)
+          return name.replace('Faculty: ', '')
+        })
+      )
+      parts.push(`👤 Faculty: ${facultyNames.join(', ')}`)
+    }
+
+    // Faculty Groups
+    if (slot.facultyGroupIds && slot.facultyGroupIds.length > 0) {
+      const groupNames = await Promise.all(
+        slot.facultyGroupIds.map(async id => {
+          const name = await getEntityName('facultyGroup', id)
+          return name.replace('Faculty Group: ', '')
+        })
+      )
+      parts.push(`👥 Faculty Groups: ${groupNames.join(', ')}`)
+    }
+
+    // Halls
+    if (slot.hallIds && slot.hallIds.length > 0) {
+      const hallNames = await Promise.all(
+        slot.hallIds.map(async id => {
+          const name = await getEntityName('hall', id)
+          return name.replace('Hall: ', '')
+        })
+      )
+      parts.push(`🏛️ Halls: ${hallNames.join(', ')}`)
+    }
+
+    // Hall Groups
+    if (slot.hallGroupIds && slot.hallGroupIds.length > 0) {
+      const groupNames = await Promise.all(
+        slot.hallGroupIds.map(async id => {
+          const name = await getEntityName('hallGroup', id)
+          return name.replace('Hall Group: ', '')
+        })
+      )
+      parts.push(`🏢 Hall Groups: ${groupNames.join(', ')}`)
+    }
+
+    // Students
+    if (slot.studentIds && slot.studentIds.length > 0) {
+      const studentNames = await Promise.all(
+        slot.studentIds.slice(0, 3).map(async id => {
+          const name = await getEntityName('student', id)
+          return name.replace('Student: ', '')
+        })
+      )
+      const extra = slot.studentIds.length > 3 ? ` +${slot.studentIds.length - 3} more` : ''
+      parts.push(`🎓 Students: ${studentNames.join(', ')}${extra}`)
+    }
+
+    // Student Groups
+    if (slot.studentGroupIds && slot.studentGroupIds.length > 0) {
+      const groupNames = await Promise.all(
+        slot.studentGroupIds.map(async id => {
+          const name = await getEntityName('studentGroup', id)
+          return name.replace('Student Group: ', '')
+        })
+      )
+      parts.push(`👨‍🎓 Student Groups: ${groupNames.join(', ')}`)
+    }
+
+    return parts.length > 0 ? parts.join(' | ') : 'No entities assigned'
+  }
 
   // Helper function to get entity name for conflict messages
   const getEntityName = async (entityType: string, entityId: string): Promise<string> => {
@@ -536,21 +630,30 @@ export default function TimetableEditor({
         return
       }
 
-      // Regular click - open editor
-      setSelectedSlot({ day, slotIndex, slot: tSlot })
-      setEditingSlot({
-        ...tSlot,
-        facultyIds: tSlot.facultyIds || [],
-        hallIds: tSlot.hallIds || [],
-        facultyGroupIds: tSlot.facultyGroupIds || [],
-        hallGroupIds: tSlot.hallGroupIds || [],
-        studentIds: tSlot.studentIds || [],
-        studentGroupIds: tSlot.studentGroupIds || []
-      })
-      setSelectedDay(day)
-      setConflicts([])
-      setSelectedSlots([]) // Clear multi-selection when opening editor
-      setSwapSlots([]) // Clear swap selection when opening editor
+      // Regular click - toggle editor
+      const isAlreadySelected = selectedSlot?.day === day && selectedSlot?.slotIndex === slotIndex
+      
+      if (isAlreadySelected) {
+        // Deselect if clicking the same slot
+        setSelectedSlot(null)
+        setConflicts([])
+      } else {
+        // Select and open editor
+        setSelectedSlot({ day, slotIndex, slot: tSlot })
+        setEditingSlot({
+          ...tSlot,
+          facultyIds: tSlot.facultyIds || [],
+          hallIds: tSlot.hallIds || [],
+          facultyGroupIds: tSlot.facultyGroupIds || [],
+          hallGroupIds: tSlot.hallGroupIds || [],
+          studentIds: tSlot.studentIds || [],
+          studentGroupIds: tSlot.studentGroupIds || []
+        })
+        setSelectedDay(day)
+        setConflicts([])
+        setSelectedSlots([]) // Clear multi-selection when opening editor
+        setSwapSlots([]) // Clear swap selection when opening editor
+      }
     }
   }
 
@@ -1986,13 +2089,19 @@ export default function TimetableEditor({
 
           {/* Conflicts Display */}
           {conflicts.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+            <div className="bg-red-50 border border-red-200 rounded-md p-3 max-h-96 overflow-y-auto">
               <h5 className="text-sm font-medium text-red-800 mb-2">Conflicts Detected:</h5>
-              <ul className="text-xs text-red-700 space-y-1">
+              <div className="space-y-3">
                 {conflicts.map((conflict, index) => (
-                  <li key={index}>• {conflict}</li>
+                  <div key={index} className="text-xs text-red-700 bg-white border border-red-200 rounded p-2">
+                    {conflict.split('\n').map((line, lineIndex) => (
+                      <div key={lineIndex} className={lineIndex === 0 ? 'font-semibold mb-1' : 'ml-2'}>
+                        {line}
+                      </div>
+                    ))}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           )}
 
@@ -2161,12 +2270,18 @@ export default function TimetableEditor({
             <h3 className="text-lg font-semibold text-red-900 mb-4">
               Cannot Move Slots - Conflicts Detected
             </h3>
-            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4 max-h-60 overflow-y-auto">
-              <ul className="text-xs text-red-700 space-y-1">
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4 max-h-96 overflow-y-auto">
+              <div className="space-y-2">
                 {moveConflicts.map((conflict, idx) => (
-                  <li key={idx}>• {conflict}</li>
+                  <div key={idx} className="text-xs text-red-700 bg-white border border-red-200 rounded p-2">
+                    {conflict.split('\n').map((line, lineIndex) => (
+                      <div key={lineIndex} className={lineIndex === 0 ? 'font-semibold mb-1' : 'ml-2'}>
+                        {line}
+                      </div>
+                    ))}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
             <p className="text-sm text-gray-600 mb-4">
               The slots have been returned to their original position.
@@ -2242,12 +2357,18 @@ export default function TimetableEditor({
             <h3 className="text-lg font-semibold text-red-900 mb-4">
               Cannot Swap Slots - Conflicts Detected
             </h3>
-            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4 max-h-60 overflow-y-auto">
-              <ul className="text-xs text-red-700 space-y-1">
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4 max-h-96 overflow-y-auto">
+              <div className="space-y-2">
                 {swapConflicts.map((conflict, idx) => (
-                  <li key={idx}>• {conflict}</li>
+                  <div key={idx} className="text-xs text-red-700 bg-white border border-red-200 rounded p-2">
+                    {conflict.split('\n').map((line, lineIndex) => (
+                      <div key={lineIndex} className={lineIndex === 0 ? 'font-semibold mb-1' : 'ml-2'}>
+                        {line}
+                      </div>
+                    ))}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
             <p className="text-sm text-gray-600 mb-4">
               The swap cannot be completed due to scheduling conflicts.

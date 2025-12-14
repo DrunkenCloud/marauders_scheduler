@@ -593,7 +593,25 @@ export function scheduleCourses(data: CompiledSchedulingData, seed?: number): { 
     // Sort by fewest available slots first (most constrained)
     coursesWithSlotCounts.sort((a, b) => a.availableSlotCount - b.availableSlotCount)
 
-    for (const { course } of coursesWithSlotCounts) {
+    // Add randomness: shuffle courses with the same slot count
+    const groupedBySlotCount: { [count: number]: typeof coursesWithSlotCounts } = {}
+    for (const item of coursesWithSlotCounts) {
+      if (!groupedBySlotCount[item.availableSlotCount]) {
+        groupedBySlotCount[item.availableSlotCount] = []
+      }
+      groupedBySlotCount[item.availableSlotCount].push(item)
+    }
+
+    // Shuffle each group and flatten back
+    const shuffledCourses: typeof coursesWithSlotCounts = []
+    const sortedCounts = Object.keys(groupedBySlotCount).map(Number).sort((a, b) => a - b)
+    for (const count of sortedCounts) {
+      const group = groupedBySlotCount[count]
+      const shuffledGroup = shuffleArray(group, rng)
+      shuffledCourses.push(...shuffledGroup)
+    }
+
+    for (const { course } of shuffledCourses) {
       const sessionDuration = course.classDuration * course.sessionsPerLecture
       const scheduledDays = scheduledDaysMap.get(course.courseId) || new Set()
       
