@@ -79,7 +79,7 @@ export default function CourseForm({ course, onSave, onCancel }: CourseFormProps
     }
 
     loadReferenceData()
-  }, [currentSession])
+  }, [currentSession, basePath])
 
   useEffect(() => {
     if (course) {

@@ -82,6 +82,131 @@ export default function TimetableEditor({
     return Boolean(course && (course.scheduledCount || 0) >= (course.totalSessions || 0))
   }
 
+  // Helper function to get entity name for conflict messages
+  const getEntityName = useCallback(async (entityType: string, entityId: string): Promise<string> => {
+    try {
+      let endpoint = `${basePath}`
+      switch (entityType) {
+        case 'faculty':
+          endpoint = `${basePath}/api/faculty/${entityId}`
+          break
+        case 'hall':
+          endpoint = `${basePath}/api/halls/${entityId}`
+          break
+        case 'student':
+          endpoint = `${basePath}/api/students/${entityId}`
+          break
+        case 'facultyGroup':
+          endpoint = `${basePath}/api/faculty-groups/${entityId}`
+          break
+        case 'hallGroup':
+          endpoint = `${basePath}/api/hall-groups/${entityId}`
+          break
+        case 'studentGroup':
+          endpoint = `${basePath}/api/student-groups/${entityId}`
+          break
+        default:
+          return `${entityType} ${entityId}`
+      }
+
+      const response = await fetch(endpoint)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && data.data) {
+          const entity = data.data
+          if (entityType.includes('Group')) {
+            return `${entityType === 'facultyGroup' ? 'Faculty' : entityType === 'hallGroup' ? 'Hall' : 'Student'} Group: ${entity.groupName}`
+          } else if (entityType === 'faculty') {
+            return `Faculty: ${entity.shortForm || entity.name}`
+          } else if (entityType === 'hall') {
+            return `Hall: ${entity.shortForm || entity.name}`
+          } else if (entityType === 'student') {
+            return `Student: ${entity.digitalId}`
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error fetching entity name for ${entityType} ${entityId}:`, error)
+    }
+
+    return `${entityType} ${entityId}`
+  }, [basePath])
+
+  // Helper function to get detailed slot entities description
+  const getSlotEntitiesDescription = useCallback(async (slot: TimetableSlot): Promise<string> => {
+    const parts: string[] = []
+
+    // Faculties
+    if (slot.facultyIds && slot.facultyIds.length > 0) {
+      const facultyNames = await Promise.all(
+        slot.facultyIds.map(async id => {
+          const name = await getEntityName('faculty', id)
+          return name.replace('Faculty: ', '')
+        })
+      )
+      parts.push(`👤 Faculty: ${facultyNames.join(', ')}`)
+    }
+
+    // Faculty Groups
+    if (slot.facultyGroupIds && slot.facultyGroupIds.length > 0) {
+      const groupNames = await Promise.all(
+        slot.facultyGroupIds.map(async id => {
+          const name = await getEntityName('facultyGroup', id)
+          return name.replace('Faculty Group: ', '')
+        })
+      )
+      parts.push(`👥 Faculty Groups: ${groupNames.join(', ')}`)
+    }
+
+    // Halls
+    if (slot.hallIds && slot.hallIds.length > 0) {
+      const hallNames = await Promise.all(
+        slot.hallIds.map(async id => {
+          const name = await getEntityName('hall', id)
+          return name.replace('Hall: ', '')
+        })
+      )
+      parts.push(`🏛️ Halls: ${hallNames.join(', ')}`)
+    }
+
+    // Hall Groups
+    if (slot.hallGroupIds && slot.hallGroupIds.length > 0) {
+      const groupNames = await Promise.all(
+        slot.hallGroupIds.map(async id => {
+          const name = await getEntityName('hallGroup', id)
+          return name.replace('Hall Group: ', '')
+        })
+      )
+      parts.push(`🏢 Hall Groups: ${groupNames.join(', ')}`)
+    }
+
+    // Students
+    if (slot.studentIds && slot.studentIds.length > 0) {
+      const studentNames = await Promise.all(
+        slot.studentIds.slice(0, 3).map(async id => {
+          const name = await getEntityName('student', id)
+          return name.replace('Student: ', '')
+        })
+      )
+      const extra = slot.studentIds.length > 3 ? ` +${slot.studentIds.length - 3} more` : ''
+      parts.push(`🎓 Students: ${studentNames.join(', ')}${extra}`)
+    }
+
+    // Student Groups
+    if (slot.studentGroupIds && slot.studentGroupIds.length > 0) {
+      const groupNames = await Promise.all(
+        slot.studentGroupIds.map(async id => {
+          const name = await getEntityName('studentGroup', id)
+          return name.replace('Student Group: ', '')
+        })
+      )
+      parts.push(`👨‍🎓 Student Groups: ${groupNames.join(', ')}`)
+    }
+
+    return parts.length > 0 ? parts.join(' | ') : 'No entities assigned'
+  }, [getEntityName])
+
+
   // Initialize timetable
   useEffect(() => {
     if (initialTimetable) {
@@ -106,7 +231,7 @@ export default function TimetableEditor({
     } else {
       console.log('No timetable set - missing initialTimetable, currentSession, or entityTiming')
     }
-  }, [initialTimetable, entityId, entityType, currentSession, entityTiming])
+  }, [initialTimetable, entityId, entityType, currentSession, entityTiming, basePath])
 
   // Load courses for the slot editor
   const loadCourses = useCallback(async () => {
@@ -131,11 +256,11 @@ export default function TimetableEditor({
     } finally {
       setLoading(false)
     }
-  }, [currentSession])
+  }, [currentSession, basePath])
 
   useEffect(() => {
     loadCourses()
-  }, [loadCourses])
+  }, [loadCourses, basePath])
 
   // Load available courses based on entity
   const loadAvailableCourses = useCallback(async () => {
@@ -155,11 +280,11 @@ export default function TimetableEditor({
     } finally {
       setLoadingCourses(false)
     }
-  }, [currentSession, entityType, entityId])
+  }, [currentSession, entityType, entityId, basePath])
 
   useEffect(() => {
     loadAvailableCourses()
-  }, [loadAvailableCourses])
+  }, [loadAvailableCourses, basePath])
 
   // Check for conflicts when moving slots (excludes all moving slots from conflict detection)
   const checkConflictsExcludingSlots = useCallback(async (
@@ -282,7 +407,7 @@ export default function TimetableEditor({
     }
 
     return conflicts
-  }, [currentSession, entityType, entityId])
+  }, [currentSession, entityType, entityId, basePath, getEntityName, getSlotEntitiesDescription])
 
   // Check for conflicts when adding/updating slots
   const checkConflicts = useCallback(async (slot: TimetableSlot, day: string, excludeSlotIndex?: number): Promise<string[]> => {
@@ -379,131 +504,7 @@ export default function TimetableEditor({
     }
 
     return conflicts
-  }, [currentSession, entityType, entityId])
-
-  // Helper function to get detailed slot entities description
-  const getSlotEntitiesDescription = async (slot: TimetableSlot): Promise<string> => {
-    const parts: string[] = []
-
-    // Faculties
-    if (slot.facultyIds && slot.facultyIds.length > 0) {
-      const facultyNames = await Promise.all(
-        slot.facultyIds.map(async id => {
-          const name = await getEntityName('faculty', id)
-          return name.replace('Faculty: ', '')
-        })
-      )
-      parts.push(`👤 Faculty: ${facultyNames.join(', ')}`)
-    }
-
-    // Faculty Groups
-    if (slot.facultyGroupIds && slot.facultyGroupIds.length > 0) {
-      const groupNames = await Promise.all(
-        slot.facultyGroupIds.map(async id => {
-          const name = await getEntityName('facultyGroup', id)
-          return name.replace('Faculty Group: ', '')
-        })
-      )
-      parts.push(`👥 Faculty Groups: ${groupNames.join(', ')}`)
-    }
-
-    // Halls
-    if (slot.hallIds && slot.hallIds.length > 0) {
-      const hallNames = await Promise.all(
-        slot.hallIds.map(async id => {
-          const name = await getEntityName('hall', id)
-          return name.replace('Hall: ', '')
-        })
-      )
-      parts.push(`🏛️ Halls: ${hallNames.join(', ')}`)
-    }
-
-    // Hall Groups
-    if (slot.hallGroupIds && slot.hallGroupIds.length > 0) {
-      const groupNames = await Promise.all(
-        slot.hallGroupIds.map(async id => {
-          const name = await getEntityName('hallGroup', id)
-          return name.replace('Hall Group: ', '')
-        })
-      )
-      parts.push(`🏢 Hall Groups: ${groupNames.join(', ')}`)
-    }
-
-    // Students
-    if (slot.studentIds && slot.studentIds.length > 0) {
-      const studentNames = await Promise.all(
-        slot.studentIds.slice(0, 3).map(async id => {
-          const name = await getEntityName('student', id)
-          return name.replace('Student: ', '')
-        })
-      )
-      const extra = slot.studentIds.length > 3 ? ` +${slot.studentIds.length - 3} more` : ''
-      parts.push(`🎓 Students: ${studentNames.join(', ')}${extra}`)
-    }
-
-    // Student Groups
-    if (slot.studentGroupIds && slot.studentGroupIds.length > 0) {
-      const groupNames = await Promise.all(
-        slot.studentGroupIds.map(async id => {
-          const name = await getEntityName('studentGroup', id)
-          return name.replace('Student Group: ', '')
-        })
-      )
-      parts.push(`👨‍🎓 Student Groups: ${groupNames.join(', ')}`)
-    }
-
-    return parts.length > 0 ? parts.join(' | ') : 'No entities assigned'
-  }
-
-  // Helper function to get entity name for conflict messages
-  const getEntityName = async (entityType: string, entityId: string): Promise<string> => {
-    try {
-      let endpoint = `${basePath}`
-      switch (entityType) {
-        case 'faculty':
-          endpoint = `${basePath}/api/faculty/${entityId}`
-          break
-        case 'hall':
-          endpoint = `${basePath}/api/halls/${entityId}`
-          break
-        case 'student':
-          endpoint = `${basePath}/api/students/${entityId}`
-          break
-        case 'facultyGroup':
-          endpoint = `${basePath}/api/faculty-groups/${entityId}`
-          break
-        case 'hallGroup':
-          endpoint = `${basePath}/api/hall-groups/${entityId}`
-          break
-        case 'studentGroup':
-          endpoint = `${basePath}/api/student-groups/${entityId}`
-          break
-        default:
-          return `${entityType} ${entityId}`
-      }
-
-      const response = await fetch(endpoint)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.data) {
-          const entity = data.data
-          if (entityType.includes('Group')) {
-            return `${entityType === 'facultyGroup' ? 'Faculty' : entityType === 'hallGroup' ? 'Hall' : 'Student'} Group: ${entity.groupName}`
-          } else if (entityType === 'faculty') {
-            return `Faculty: ${entity.shortForm || entity.name}`
-          } else if (entityType === 'hall') {
-            return `Hall: ${entity.shortForm || entity.name}`
-          } else if (entityType === 'student') {
-            return `Student: ${entity.digitalId}`
-          }
-        }
-      }
-    } catch (error) {
-      console.error(`Error fetching entity name for ${entityType} ${entityId}:`, error)
-    }
-
-    return `${entityType} ${entityId}`
-  }
+  }, [currentSession, entityType, entityId, basePath, getEntityName, getSlotEntitiesDescription])
 
   // Update course scheduled count
   const updateCourseScheduledCount = async (courseId: string, increment: number): Promise<boolean> => {
@@ -541,11 +542,11 @@ export default function TimetableEditor({
   }
 
   // Calculate timeline dimensions and positions
-  const getTimelineWidth = () => {
+  const getTimelineWidth = useCallback(() => {
     if (!entityTiming) return 1200
     const totalMinutes = (entityTiming.endHour * 60 + entityTiming.endMinute) - (entityTiming.startHour * 60 + entityTiming.startMinute)
     return Math.max(1200, totalMinutes * 3) // 3px per minute for better visibility
-  }
+  }, [entityTiming])
 
   const getSlotPosition = (slot: TimetableSlot) => {
     if (!entityTiming) return { left: 0, width: 100 }
@@ -561,7 +562,7 @@ export default function TimetableEditor({
     return { left: Math.max(0, left), width: Math.max(20, width) }
   }
 
-  const getTimeFromPosition = (x: number, snapToFive: boolean = false) => {
+  const getTimeFromPosition = useCallback((x: number, snapToFive: boolean = false) => {
     if (!entityTiming) return { hour: 8, minute: 0 }
 
     const timelineWidth = getTimelineWidth()
@@ -580,7 +581,7 @@ export default function TimetableEditor({
     }
 
     return { hour: Math.max(0, Math.min(23, hour)), minute: Math.max(0, Math.min(59, minute)) }
-  }
+  }, [entityTiming, getTimelineWidth])
 
   const handleSlotClick = (day: string, slotIndex: number, event?: React.MouseEvent) => {
     if (readOnly || !timetable) return
@@ -1220,7 +1221,7 @@ export default function TimetableEditor({
     setShowMoveConfirmation(true)
     setDraggingSlots(null)
     setDragPreview(null)
-  }, [draggingSlots, dragPreview, timetable, currentSession])
+  }, [draggingSlots, dragPreview, timetable, currentSession, checkConflictsExcludingSlots])
 
   // Add/remove mouse event listeners for drag
   useEffect(() => {
@@ -1232,7 +1233,7 @@ export default function TimetableEditor({
         window.removeEventListener('mouseup', handleMouseUp)
       }
     }
-  }, [draggingSlots, handleMouseMove, handleMouseUp])
+  }, [draggingSlots, handleMouseMove, handleMouseUp, checkConflictsExcludingSlots])
 
   // Handle move confirmation
   const confirmMove = async () => {

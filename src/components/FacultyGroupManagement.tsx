@@ -38,13 +38,13 @@ export function FacultyGroupManagement() {
         })
         .catch(err => console.error('Error loading faculty group:', err))
     }
-  }, [searchParams])
+  }, [searchParams, basePath])
 
   useEffect(() => {
     if (currentSession) {
       loadGroups()
     }
-  }, [currentSession]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentSession, basePath]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadGroups = async () => {
     if (!currentSession) return

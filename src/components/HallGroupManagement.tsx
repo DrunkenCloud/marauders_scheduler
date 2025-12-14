@@ -38,7 +38,7 @@ export function HallGroupManagement() {
         })
         .catch(err => console.error('Error loading hall group:', err))
     }
-  }, [searchParams])
+  }, [searchParams, basePath])
 
   useEffect(() => {
     if (currentSession) {

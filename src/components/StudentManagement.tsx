@@ -37,7 +37,7 @@ export default function StudentManagement() {
           .catch(err => console.error('Error loading student:', err))
       }
     }
-  }, [searchParams])
+  }, [searchParams, basePath])
 
   const updateURL = (mode: ExtendedViewMode, studentId?: string) => {
     const params = new URLSearchParams()

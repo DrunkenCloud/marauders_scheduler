@@ -40,7 +40,7 @@ export default function StatsCards() {
     }
 
     fetchStats()
-  }, [currentSession])
+  }, [currentSession, basePath])
 
   if (!currentSession) {
     return (

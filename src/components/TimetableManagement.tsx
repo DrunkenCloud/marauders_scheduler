@@ -56,7 +56,7 @@ export default function TimetableManagement({
     }
 
     loadTimetable()
-  }, [entityId, entityType, currentSession])
+  }, [entityId, entityType, currentSession, basePath])
 
   const handleSave = async (updatedTimetable: EntityTimetable) => {
     if (!currentSession) return

@@ -38,7 +38,7 @@ export function StudentGroupManagement() {
         })
         .catch(err => console.error('Error loading student group:', err))
     }
-  }, [searchParams])
+  }, [searchParams, basePath])
 
   useEffect(() => {
     if (currentSession) {

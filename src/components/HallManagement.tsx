@@ -37,7 +37,7 @@ export default function HallManagement() {
           .catch(err => console.error('Error loading hall:', err))
       }
     }
-  }, [searchParams])
+  }, [searchParams, basePath])
 
   const updateURL = (mode: ExtendedViewMode, hallId?: string) => {
     const params = new URLSearchParams()

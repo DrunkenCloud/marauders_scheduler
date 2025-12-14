@@ -42,7 +42,7 @@ export default function CourseScheduling() {
     }
 
     loadCourses()
-  }, [currentSession])
+  }, [currentSession, basePath])
 
   const handleSessionsChange = (courseId: string, sessions: number) => {
     const course = courses.find(c => c.id === courseId)

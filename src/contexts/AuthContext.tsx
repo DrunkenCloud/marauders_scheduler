@@ -19,24 +19,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check for existing session on mount
   useEffect(() => {
-    checkSession()
-  }, [])
-
-  const checkSession = async () => {
-    try {
-      const response = await fetch(`${basePath}/api/auth/session`)
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.user) {
-          setUser(data.user)
+    const checkSession = async () => {
+      try {
+        const response = await fetch(`${basePath}/api/auth/session`)
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.user) {
+            setUser(data.user)
+          }
         }
+      } catch (error) {
+        console.error('Session check failed:', error)
+      } finally {
+        setIsLoading(false)
       }
-    } catch (error) {
-      console.error('Session check failed:', error)
-    } finally {
-      setIsLoading(false)
     }
-  }
+
+    checkSession()
+  }, [basePath])
 
   const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
