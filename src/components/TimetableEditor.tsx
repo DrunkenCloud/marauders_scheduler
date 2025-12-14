@@ -48,6 +48,15 @@ export default function TimetableEditor({
     targetStartTime: number
   } | null>(null)
 
+  // Swap state
+  const [swapSlots, setSwapSlots] = useState<Array<{ day: string; slotIndex: number; slot: TimetableSlot }>>([])
+  const [showSwapConfirmation, setShowSwapConfirmation] = useState(false)
+  const [swapConflicts, setSwapConflicts] = useState<string[]>([])
+  const [pendingSwap, setPendingSwap] = useState<{
+    slot1: { day: string; slotIndex: number; slot: TimetableSlot }
+    slot2: { day: string; slotIndex: number; slot: TimetableSlot }
+  } | null>(null)
+
   // Slot editor form state
   const [editingSlot, setEditingSlot] = useState<TimetableSlot>({
     type: 'course',
@@ -487,6 +496,27 @@ export default function TimetableEditor({
     if (slot && typeof slot === 'object' && 'type' in slot) {
       const tSlot = slot as TimetableSlot
 
+      // Swap mode with Alt key
+      if (event && event.altKey) {
+        const slotData = { day, slotIndex, slot: tSlot }
+        const isAlreadyInSwap = swapSlots.some(s => s.day === day && s.slotIndex === slotIndex)
+        
+        if (isAlreadyInSwap) {
+          // Remove from swap selection
+          setSwapSlots(swapSlots.filter(s => !(s.day === day && s.slotIndex === slotIndex)))
+        } else if (swapSlots.length < 2) {
+          // Add to swap selection (max 2)
+          const newSwapSlots = [...swapSlots, slotData]
+          setSwapSlots(newSwapSlots)
+          
+          // If we now have 2 slots, trigger swap
+          if (newSwapSlots.length === 2) {
+            handleInitiateSwap(newSwapSlots[0], newSwapSlots[1])
+          }
+        }
+        return
+      }
+
       // Multi-select with Ctrl/Cmd key
       if (event && (event.ctrlKey || event.metaKey)) {
         const slotId = { day, slotIndex }
@@ -520,6 +550,7 @@ export default function TimetableEditor({
       setSelectedDay(day)
       setConflicts([])
       setSelectedSlots([]) // Clear multi-selection when opening editor
+      setSwapSlots([]) // Clear swap selection when opening editor
     }
   }
 
@@ -1171,6 +1202,145 @@ export default function TimetableEditor({
     setMoveConflicts([])
   }
 
+  // Swap functionality
+  const handleInitiateSwap = async (
+    slot1: { day: string; slotIndex: number; slot: TimetableSlot },
+    slot2: { day: string; slotIndex: number; slot: TimetableSlot }
+  ) => {
+    if (!currentSession || !timetable) return
+
+    // Create swapped versions
+    const swappedSlot1 = {
+      ...slot1.slot,
+      startHour: slot2.slot.startHour,
+      startMinute: slot2.slot.startMinute
+    }
+
+    const swappedSlot2 = {
+      ...slot2.slot,
+      startHour: slot1.slot.startHour,
+      startMinute: slot1.slot.startMinute
+    }
+
+    // Check for conflicts for both swapped slots
+    const allConflicts: string[] = []
+
+    // Check slot1 in slot2's position (exclude slot2's original position)
+    const conflicts1 = await checkConflictsExcludingSlots(
+      swappedSlot1,
+      slot2.day,
+      [slot1, slot2],
+      [swappedSlot1, swappedSlot2]
+    )
+    allConflicts.push(...conflicts1)
+
+    // Check slot2 in slot1's position (exclude slot1's original position)
+    const conflicts2 = await checkConflictsExcludingSlots(
+      swappedSlot2,
+      slot1.day,
+      [slot1, slot2],
+      [swappedSlot1, swappedSlot2]
+    )
+    allConflicts.push(...conflicts2)
+
+    if (allConflicts.length > 0) {
+      // Show conflicts
+      setSwapConflicts(allConflicts)
+      setSwapSlots([])
+      return
+    }
+
+    // No conflicts - show confirmation
+    setPendingSwap({ slot1, slot2 })
+    setShowSwapConfirmation(true)
+  }
+
+  const confirmSwap = async () => {
+    if (!pendingSwap || !timetable || !currentSession) return
+
+    const { slot1, slot2 } = pendingSwap
+
+    // Create new timetable with swapped slots
+    const newTimetable = { ...timetable }
+    newTimetable.schedule = { ...timetable.schedule }
+
+    // Get the day slots
+    const day1Slots = [...(newTimetable.schedule[slot1.day] || [])]
+    const day2Slots = slot1.day === slot2.day ? day1Slots : [...(newTimetable.schedule[slot2.day] || [])]
+
+    // Create swapped versions
+    const swappedSlot1 = {
+      ...slot1.slot,
+      startHour: slot2.slot.startHour,
+      startMinute: slot2.slot.startMinute
+    }
+
+    const swappedSlot2 = {
+      ...slot2.slot,
+      startHour: slot1.slot.startHour,
+      startMinute: slot1.slot.startMinute
+    }
+
+    // Remove old slots from related timetables
+    await updateRelatedTimetables(slot1.slot, slot1.day, 'remove')
+    await updateRelatedTimetables(slot2.slot, slot2.day, 'remove')
+
+    // Update the slots in the arrays
+    if (slot1.day === slot2.day) {
+      // Same day - need to be careful with indices
+      const indices = [slot1.slotIndex, slot2.slotIndex].sort((a, b) => b - a)
+      day1Slots.splice(indices[0], 1)
+      day1Slots.splice(indices[1], 1)
+      day1Slots.push(swappedSlot1, swappedSlot2)
+      
+      // Sort by start time
+      day1Slots.sort((a, b) => {
+        const aTime = a.startHour * 60 + a.startMinute
+        const bTime = b.startHour * 60 + b.startMinute
+        return aTime - bTime
+      })
+      
+      newTimetable.schedule[slot1.day] = day1Slots
+    } else {
+      // Different days
+      day1Slots[slot1.slotIndex] = swappedSlot1
+      day2Slots[slot2.slotIndex] = swappedSlot2
+
+      // Sort both days
+      day1Slots.sort((a, b) => {
+        const aTime = a.startHour * 60 + a.startMinute
+        const bTime = b.startHour * 60 + b.startMinute
+        return aTime - bTime
+      })
+      day2Slots.sort((a, b) => {
+        const aTime = a.startHour * 60 + a.startMinute
+        const bTime = b.startHour * 60 + b.startMinute
+        return aTime - bTime
+      })
+
+      newTimetable.schedule[slot1.day] = day1Slots
+      newTimetable.schedule[slot2.day] = day2Slots
+    }
+
+    // Add swapped slots to related timetables
+    await updateRelatedTimetables(swappedSlot1, slot2.day, 'add')
+    await updateRelatedTimetables(swappedSlot2, slot1.day, 'add')
+
+    setTimetable(newTimetable)
+
+    // Clear state
+    setShowSwapConfirmation(false)
+    setPendingSwap(null)
+    setSwapSlots([])
+  }
+
+  const cancelSwap = () => {
+    setShowSwapConfirmation(false)
+    setPendingSwap(null)
+    setSwapSlots([])
+    setSwapConflicts([])
+  }
+
   const handleSlotDelete = async (day: string, slotIndex: number) => {
     if (!timetable || !currentSession) return
 
@@ -1365,7 +1535,7 @@ export default function TimetableEditor({
               Timetable Editor
             </h3>
             <p className="text-sm text-gray-500">
-              Click timeline to add • Click slot to edit • Drag to move • Ctrl+Click to multi-select
+              Click timeline to add • Click to edit • Drag to move • Ctrl+Click to multi-select • Alt+Click to swap
             </p>
             <p className="text-xs text-gray-400 mt-1">
               Time range: {formatTime(entityTiming.startHour, entityTiming.startMinute)} - {formatTime(entityTiming.endHour, entityTiming.endMinute)}
@@ -1497,6 +1667,8 @@ export default function TimetableEditor({
                         const isSelected = selectedSlot?.day === day && selectedSlot?.slotIndex === slotIndex
                         const isMultiSelected = selectedSlots.some(s => s.day === day && s.slotIndex === slotIndex)
                         const isDragging = draggingSlots?.some(s => s.day === day && s.slotIndex === slotIndex)
+                        const isInSwap = swapSlots.some(s => s.day === day && s.slotIndex === slotIndex)
+                        const swapNumber = isInSwap ? swapSlots.findIndex(s => s.day === day && s.slotIndex === slotIndex) + 1 : 0
 
                         return (
                           <div
@@ -1506,6 +1678,8 @@ export default function TimetableEditor({
                             } ${
                               isMultiSelected ? 'ring-2 ring-green-500' : ''
                             } ${
+                              isInSwap ? 'ring-2 ring-purple-500' : ''
+                            } ${
                               isDragging ? 'opacity-30' : ''
                             } ${getSlotColor(tSlot)}`}
                             style={{ left, width }}
@@ -1514,25 +1688,62 @@ export default function TimetableEditor({
                               handleSlotClick(day, slotIndex, e)
                             }}
                             onMouseDown={(e) => {
-                              if (!readOnly && e.button === 0) {
+                              if (!readOnly && e.button === 0 && !e.altKey) {
                                 handleSlotMouseDown(day, slotIndex, e)
                               }
                             }}
                           >
+                            {/* Swap indicator */}
+                            {isInSwap && (
+                              <div className="absolute -top-1 -left-1 w-5 h-5 bg-purple-500 text-white rounded-full text-xs flex items-center justify-center font-bold">
+                                {swapNumber}
+                              </div>
+                            )}
+
                             {/* Multi-select indicator */}
-                            {isMultiSelected && (
+                            {isMultiSelected && !isInSwap && (
                               <div className="absolute -top-1 -left-1 w-4 h-4 bg-green-500 text-white rounded-full text-xs flex items-center justify-center">
                                 ✓
                               </div>
                             )}
 
                             {/* Slot Content */}
-                            <div className="h-full flex items-center justify-center px-2 text-xs font-medium text-gray-800 overflow-hidden">
-                              <div className="truncate">
-                                {tSlot.type === 'course'
-                                  ? (tSlot.courseCode || 'Course')
-                                  : (tSlot.blockerReason || 'Blocked')}
-                              </div>
+                            <div className="h-full flex flex-col justify-center px-2 py-1 text-xs text-gray-800 overflow-hidden">
+                              {tSlot.type === 'course' ? (
+                                <>
+                                  <div className="font-semibold truncate text-center">
+                                    {tSlot.courseCode || 'Course'}
+                                  </div>
+                                  {(() => {
+                                    const course = courses.find(c => c.id === tSlot.courseId)
+                                    if (!course) return null
+                                    
+                                    const faculties = course.compulsoryFaculties?.map(f => f.shortForm || f.name.split(' ').map(n => n[0]).join('')).slice(0, 2) || []
+                                    const halls = course.compulsoryHalls?.map(h => h.shortForm || h.name).slice(0, 2) || []
+                                    
+                                    return (
+                                      <>
+                                        {faculties.length > 0 && (
+                                          <div className="text-[10px] text-gray-600 truncate text-center">
+                                            👤 {faculties.join(', ')}
+                                            {course.compulsoryFaculties && course.compulsoryFaculties.length > 2 && ' +'}
+                                          </div>
+                                        )}
+                                        {halls.length > 0 && (
+                                          <div className="text-[10px] text-gray-600 truncate text-center">
+                                            🏛️ {halls.join(', ')}
+                                            {course.compulsoryHalls && course.compulsoryHalls.length > 2 && ' +'}
+                                          </div>
+                                        )}
+                                      </>
+                                    )
+                                  })()}
+                                </>
+                              ) : (
+                                <div className="font-medium truncate text-center">
+                                  {tSlot.blockerReason || 'Blocked'}
+                                </div>
+                              )}
                             </div>
 
                             {/* Delete button */}
@@ -1965,6 +2176,107 @@ export default function TimetableEditor({
               className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
             >
               Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Confirmation Dialog */}
+      {showSwapConfirmation && pendingSwap && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-white rounded-lg shadow-2xl border-2 border-purple-300 max-w-md w-full p-6 pointer-events-auto">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Confirm Slot Swap
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Swap the times of these two slots?
+            </p>
+            <div className="bg-purple-50 border border-purple-200 rounded p-3 mb-4 space-y-3">
+              <div>
+                <p className="text-xs text-purple-800 font-medium mb-1">Slot 1:</p>
+                <p className="text-sm text-purple-900">
+                  {pendingSwap.slot1.slot.type === 'course' ? pendingSwap.slot1.slot.courseCode : pendingSwap.slot1.slot.blockerReason}
+                  {' '}on {pendingSwap.slot1.day} at{' '}
+                  {formatTime(pendingSwap.slot1.slot.startHour, pendingSwap.slot1.slot.startMinute)}
+                </p>
+                <p className="text-xs text-purple-700 mt-1">
+                  → Will move to {pendingSwap.slot2.day} at{' '}
+                  {formatTime(pendingSwap.slot2.slot.startHour, pendingSwap.slot2.slot.startMinute)}
+                </p>
+              </div>
+              <div className="border-t border-purple-200 pt-2">
+                <p className="text-xs text-purple-800 font-medium mb-1">Slot 2:</p>
+                <p className="text-sm text-purple-900">
+                  {pendingSwap.slot2.slot.type === 'course' ? pendingSwap.slot2.slot.courseCode : pendingSwap.slot2.slot.blockerReason}
+                  {' '}on {pendingSwap.slot2.day} at{' '}
+                  {formatTime(pendingSwap.slot2.slot.startHour, pendingSwap.slot2.slot.startMinute)}
+                </p>
+                <p className="text-xs text-purple-700 mt-1">
+                  → Will move to {pendingSwap.slot1.day} at{' '}
+                  {formatTime(pendingSwap.slot1.slot.startHour, pendingSwap.slot1.slot.startMinute)}
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={confirmSwap}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
+              >
+                Confirm Swap
+              </button>
+              <button
+                onClick={cancelSwap}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Conflicts Dialog */}
+      {swapConflicts.length > 0 && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
+          <div className="bg-white rounded-lg shadow-2xl border-2 border-red-300 max-w-md w-full p-6 pointer-events-auto">
+            <h3 className="text-lg font-semibold text-red-900 mb-4">
+              Cannot Swap Slots - Conflicts Detected
+            </h3>
+            <div className="bg-red-50 border border-red-200 rounded p-3 mb-4 max-h-60 overflow-y-auto">
+              <ul className="text-xs text-red-700 space-y-1">
+                {swapConflicts.map((conflict, idx) => (
+                  <li key={idx}>• {conflict}</li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-sm text-gray-600 mb-4">
+              The swap cannot be completed due to scheduling conflicts.
+            </p>
+            <button
+              onClick={() => setSwapConflicts([])}
+              className="w-full px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Swap Info Banner */}
+      {swapSlots.length > 0 && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-purple-600 text-white px-6 py-3 rounded-lg shadow-lg z-40">
+          <div className="flex items-center space-x-4">
+            <span className="font-medium">
+              {swapSlots.length === 1 ? 'Select another slot to swap' : 'Swapping slots...'}
+            </span>
+            <span className="text-sm opacity-90">
+              Alt+Click to select slots
+            </span>
+            <button
+              onClick={() => setSwapSlots([])}
+              className="ml-4 px-3 py-1 bg-white text-purple-600 rounded text-sm font-medium hover:bg-purple-50"
+            >
+              Cancel Swap
             </button>
           </div>
         </div>
