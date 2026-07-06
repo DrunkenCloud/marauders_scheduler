@@ -62,9 +62,7 @@ export function StudentGroupMemberManager({
     }
   }
 
-  const formatTime = (hour: number, minute: number) => {
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-  }
+  
 
   const handleAddMembers = async () => {
     if (selectedStudents.length === 0) return
@@ -250,9 +248,6 @@ export function StudentGroupMemberManager({
                       />
                       <div className="flex-1">
                         <div className="font-medium">Digital ID: {member.student.digitalId}</div>
-                        <div className="text-sm text-gray-600">
-                          Working Hours: {formatTime(member.student.startHour, member.student.startMinute)} - {formatTime(member.student.endHour, member.student.endMinute)}
-                        </div>
                       </div>
                       <div className="text-sm text-gray-500">
                         Added: {new Date(member.createdAt).toLocaleDateString()}
@@ -303,9 +298,6 @@ export function StudentGroupMemberManager({
                       />
                       <div className="flex-1">
                         <div className="font-medium">Digital ID: {student.digitalId}</div>
-                        <div className="text-sm text-gray-600">
-                          Working Hours: {formatTime(student.startHour, student.startMinute)} - {formatTime(student.endHour, student.endMinute)}
-                        </div>
                       </div>
                     </div>
                   ))}

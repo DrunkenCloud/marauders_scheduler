@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useSession } from '@/contexts/SessionContext'
 import { ApiResponse, Student } from '@/types'
-import TimingFields from './TimingFields'
 
 interface StudentFormProps {
   student?: Student | null
@@ -14,29 +13,17 @@ interface StudentFormProps {
 export default function StudentForm({ student, onSave, onCancel }: StudentFormProps) {
   const { currentSession } = useSession()
   const [digitalId, setDigitalId] = useState('')
-  const [startHour, setStartHour] = useState(8)
-  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-  const [startMinute, setStartMinute] = useState(10)
-  const [endHour, setEndHour] = useState(15)
-  const [endMinute, setEndMinute] = useState(30)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
   const isEditing = !!student
 
   useEffect(() => {
     if (student) {
       setDigitalId(student.digitalId.toString())
-      setStartHour(student.startHour)
-      setStartMinute(student.startMinute)
-      setEndHour(student.endHour)
-      setEndMinute(student.endMinute)
     } else {
       setDigitalId('')
-      setStartHour(8)
-      setStartMinute(10)
-      setEndHour(15)
-      setEndMinute(30)
     }
     setError(null)
   }, [student])
@@ -68,11 +55,7 @@ export default function StudentForm({ student, onSave, onCancel }: StudentFormPr
       const method = isEditing ? 'PUT' : 'POST'
       
       const body: any = {
-        digitalId: digitalIdNum,
-        startHour,
-        startMinute,
-        endHour,
-        endMinute
+        digitalId: digitalIdNum
       }
 
       if (!isEditing) {
@@ -148,20 +131,6 @@ export default function StudentForm({ student, onSave, onCancel }: StudentFormPr
             A unique numeric identifier for the student
           </p>
         </div>
-
-        {/* Working Hours */}
-        <TimingFields
-          startHour={startHour}
-          startMinute={startMinute}
-          endHour={endHour}
-          endMinute={endMinute}
-          onStartHourChange={setStartHour}
-          onStartMinuteChange={setStartMinute}
-          onEndHourChange={setEndHour}
-          onEndMinuteChange={setEndMinute}
-          title="Working Hours"
-          description="Set the student's working day hours. This determines when they can be scheduled for classes."
-        />
 
         {/* Session Info (for new students) */}
         {!isEditing && currentSession && (

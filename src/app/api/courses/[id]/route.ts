@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ApiResponse } from '@/types'
+import { purgeSlotsFromSession } from '@/lib/timetableCleanup'
 
 export async function GET(
   request: NextRequest,
@@ -464,6 +465,13 @@ export async function DELETE(
         }
       }
       return NextResponse.json(response, { status: 400 })
+    }
+
+    // Strip this course's denormalized slot copies out of every entity's
+    // timetable before deleting, or they'd linger as ghost classes.
+    const course = await prisma.course.findUnique({ where: { id }, select: { sessionId: true } })
+    if (course) {
+      await purgeSlotsFromSession(course.sessionId, (s: any) => s.type === 'course' && s.courseId === id)
     }
 
     await prisma.course.delete({

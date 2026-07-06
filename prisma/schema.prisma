@@ -9,8 +9,8 @@ datasource db {
 
 model Session {
   id        String    @id @default(uuid())
-  name      String    @unique       // e.g., "Spring 2025", "Fall 2025"
-  details   String?                   // optional description
+  name      String    @unique
+  details   String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -27,10 +27,6 @@ model Student {
   id            String    @id @default(uuid())
   digitalId     Int
   timetable     Json
-  startHour     Int       @default(8)   // working day start hour (0-23)
-  startMinute   Int       @default(10)  // working day start minute (0-59)
-  endHour       Int       @default(15)  // working day end hour (0-23)
-  endMinute     Int       @default(30)  // working day end minute (0-59)
   sessionId     String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -44,10 +40,6 @@ model StudentGroup {
   id            String    @id @default(uuid())
   groupName     String
   timetable     Json
-  startHour     Int       @default(8)   // working day start hour (0-23)
-  startMinute   Int       @default(10)  // working day start minute (0-59)
-  endHour       Int       @default(15)  // working day end hour (0-23)
-  endMinute     Int       @default(30)  // working day end minute (0-59)
   sessionId     String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -73,10 +65,6 @@ model Faculty {
   name          String
   shortForm     String?
   timetable     Json
-  startHour     Int       @default(8)   // working day start hour (0-23)
-  startMinute   Int       @default(10)  // working day start minute (0-59)
-  endHour       Int       @default(17)  // working day end hour (0-23) - faculty can work later
-  endMinute     Int       @default(0)   // working day end minute (0-59)
   sessionId     String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -90,10 +78,6 @@ model FacultyGroup {
   id            String    @id @default(uuid())
   groupName     String
   timetable     Json
-  startHour     Int       @default(8)   // working day start hour (0-23)
-  startMinute   Int       @default(10)  // working day start minute (0-59)
-  endHour       Int       @default(17)  // working day end hour (0-23) - faculty can work later
-  endMinute     Int       @default(0)   // working day end minute (0-59)
   sessionId     String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -121,10 +105,6 @@ model Hall {
   Building      String
   shortForm     String?
   timetable     Json
-  startHour     Int       @default(8)   // availability start hour (0-23)
-  startMinute   Int       @default(10)  // availability start minute (0-59)
-  endHour       Int       @default(20)  // availability end hour (0-23) - halls can be used later
-  endMinute     Int       @default(0)   // availability end minute (0-59)
   sessionId     String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -138,10 +118,6 @@ model HallGroup {
   id            String    @id @default(uuid())
   groupName     String
   timetable     Json
-  startHour     Int       @default(8)   // availability start hour (0-23)
-  startMinute   Int       @default(10)  // availability start minute (0-59)
-  endHour       Int       @default(20)  // availability end hour (0-23) - halls can be used later
-  endMinute     Int       @default(0)   // availability end minute (0-59)
   sessionId     String
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -167,10 +143,10 @@ model Course {
   name                    String
   code                    String
   timetable               Json
-  classDuration           Int                   @default(50)        // minutes per session
-  sessionsPerLecture      Int                   @default(1)         // consecutive sessions needed
-  totalSessions           Int                   @default(3)         // total sessions per week
-  scheduledCount          Int                   @default(0)         // number of lectures already scheduled
+  classDuration           Int                   @default(50)
+  sessionsPerLecture      Int                   @default(1)
+  totalSessions           Int                   @default(3)
+  scheduledCount          Int                   @default(0)
   sessionId               String
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
@@ -228,42 +204,12 @@ model CourseStudentGroupEnrollment {
   studentGroup   StudentGroup @relation(fields: [studentGroupId], references: [id], onDelete: Cascade)
 }
 
-// Example timetable JSON (TimetableSlot format)
+// Timetable JSON format (slot-number based, 7 slots per day):
 // {
-//    "Monday": [
-//       {
-//         "type": "course",
-//         "startHour": 9,
-//         "startMinute": 0,
-//         "duration": 50,
-//         "courseId": 1,
-//         "courseCode": "CS101",
-//         "hallIds": [1],
-//         "facultyIds": [1],
-//         "studentIds": [1, 2, 3],
-//         "hallGroupIds": [],
-//         "facultyGroupIds": [],
-//         "studentGroupIds": []
-//       },
-//       {
-//         "type": "blocker",
-//         "startHour": 14,
-//         "startMinute": 0,
-//         "duration": 60,
-//         "blockerReason": "Lunch Break"
-//       }
-//    ],
-//    "Tuesday": [],
-//    "Wednesday": [
-//       {
-//         "type": "course",
-//         "startHour": 10,
-//         "startMinute": 30,
-//         "duration": 50,
-//         "courseId": 2,
-//         "courseCode": "MATH202"
-//       }
-//    ],
-//    "Thursday": [],
-//    "Friday": []
+//   "Monday": [
+//     { "type": "course", "slotNumber": 0, "slotSpan": 1, "courseId": "...", "courseCode": "CS101",
+//       "hallIds": [], "facultyIds": [], "studentIds": [], "hallGroupIds": [], "facultyGroupIds": [], "studentGroupIds": [] },
+//     { "type": "blocker", "slotNumber": 3, "slotSpan": 1, "blockerReason": "Lunch Break" }
+//   ],
+//   "Tuesday": [], "Wednesday": [], "Thursday": [], "Friday": []
 // }

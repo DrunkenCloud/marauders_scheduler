@@ -20,10 +20,6 @@ export async function GET(
             id: true,
             name: true,
             shortForm: true,
-            startHour: true,
-            startMinute: true,
-            endHour: true,
-            endMinute: true,
             createdAt: true,
             updatedAt: true
           }

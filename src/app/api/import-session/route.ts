@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
     const facultyGroupIdMap = new Map<string, string>()
     const hallIdMap = new Map<string, string>()
     const hallGroupIdMap = new Map<string, string>()
-    const courseIdMap = new Map<string, string>()
 
     // Import student groups (handle both 'studentGroups' and 'classes' from old format)
     const studentGroupsData = data.studentGroups || data.classes || []
@@ -184,11 +183,7 @@ export async function POST(request: NextRequest) {
           data: {
             sessionId,
             groupName,
-            timetable,
-            startHour: group.startHour || 8,
-            startMinute: group.startMinute || 10,
-            endHour: group.endHour || 15,
-            endMinute: group.endMinute || 30
+            timetable
           }
         })
         studentGroupIdMap.set(group.id, newGroup.id)
@@ -203,11 +198,7 @@ export async function POST(request: NextRequest) {
           data: {
             sessionId,
             digitalId: student.digitalId,
-            timetable: student.timetable || {},
-            startHour: student.startHour || 8,
-            startMinute: student.startMinute || 10,
-            endHour: student.endHour || 15,
-            endMinute: student.endMinute || 30
+            timetable: student.timetable || {}
           }
         })
         studentIdMap.set(student.id, newStudent.id)
@@ -223,11 +214,7 @@ export async function POST(request: NextRequest) {
             sessionId,
             name: fac.name,
             shortForm: fac.shortForm,
-            timetable: fac.timetable || {},
-            startHour: fac.startHour || 8,
-            startMinute: fac.startMinute || 10,
-            endHour: fac.endHour || 17,
-            endMinute: fac.endMinute || 0
+            timetable: fac.timetable || {}
           }
         })
         facultyIdMap.set(fac.id, newFaculty.id)
@@ -242,11 +229,7 @@ export async function POST(request: NextRequest) {
           data: {
             sessionId,
             groupName: group.groupName,
-            timetable: group.timetable || {},
-            startHour: group.startHour || 8,
-            startMinute: group.startMinute || 10,
-            endHour: group.endHour || 17,
-            endMinute: group.endMinute || 0
+            timetable: group.timetable || {}
           }
         })
         facultyGroupIdMap.set(group.id, newGroup.id)
@@ -264,11 +247,7 @@ export async function POST(request: NextRequest) {
             Floor: hall.Floor || '',
             Building: hall.Building || '',
             shortForm: hall.shortForm,
-            timetable: hall.timetable || {},
-            startHour: hall.startHour || 8,
-            startMinute: hall.startMinute || 10,
-            endHour: hall.endHour || 20,
-            endMinute: hall.endMinute || 0
+            timetable: hall.timetable || {}
           }
         })
         hallIdMap.set(hall.id, newHall.id)
@@ -283,11 +262,7 @@ export async function POST(request: NextRequest) {
           data: {
             sessionId,
             groupName: group.groupName,
-            timetable: group.timetable || {},
-            startHour: group.startHour || 8,
-            startMinute: group.startMinute || 10,
-            endHour: group.endHour || 20,
-            endMinute: group.endMinute || 0
+            timetable: group.timetable || {}
           }
         })
         hallGroupIdMap.set(group.id, newGroup.id)
@@ -398,193 +373,70 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Import courses
+    // Import courses. A course serves a LIST of classes that attend as one combined
+    // session (proff_choosing sends one class; a marauders re-export can send several
+    // after a manual split) — so it's a single scheduler course enrolling all its
+    // classes, not one course per class. Lab / lab_theory still split into a practical
+    // + a "-T" theory course, each enrolling the same class list.
+    // offeringMap: sourceCourseId -> created marauders course ids (variants)
+    const offeringMap = new Map<string, string[]>()
+
     if (data.courses && Array.isArray(data.courses)) {
       for (const course of data.courses) {
         const courseType = course.courseType || 'theory'
         const courseName = course.name || course.courseName || 'Unnamed Course'
         const courseCode = course.code || course.courseCode || 'UNKNOWN'
-        
-        // Handle different course types
-        if (courseType === 'lab') {
-          // Create lab course (150 mins, 1 session)
-          const labCourse = await prisma.course.create({
-            data: {
-              sessionId,
-              name: courseName,
-              code: courseCode,
-              timetable: course.timetable || {},
-              classDuration: 150,
-              sessionsPerLecture: 1,
-              totalSessions: 1,
-              scheduledCount: 0
-            }
-          })
-          courseIdMap.set(course.id, labCourse.id)
-          courseIdMap.set(course.id + '_lab', labCourse.id)
-          stats.courses++
-          
-          // Create theory course (50 mins, 1 session)
-          const theoryCourse = await prisma.course.create({
-            data: {
-              sessionId,
-              name: `${courseName} Theory`,
-              code: `${courseCode}-T`,
-              timetable: {},
-              classDuration: 50,
-              sessionsPerLecture: 1,
-              totalSessions: 1,
-              scheduledCount: 0
-            }
-          })
-          courseIdMap.set(course.id + '_theory', theoryCourse.id)
-          stats.courses++
-          
-          // Handle enrollments for both courses
-          if (course.classId) {
-            const newStudentGroupId = studentGroupIdMap.get(course.classId)
-            if (newStudentGroupId) {
-              await prisma.courseStudentGroupEnrollment.create({
-                data: {
-                  courseId: labCourse.id,
-                  studentGroupId: newStudentGroupId
-                }
-              })
-              await prisma.courseStudentGroupEnrollment.create({
-                data: {
-                  courseId: theoryCourse.id,
-                  studentGroupId: newStudentGroupId
-                }
-              })
-              stats.courseRelations += 2
-            }
-          }
-          
-          // Connect relationships for both courses
-          await connectCourseRelationships(labCourse.id, course)
-          await connectCourseRelationships(theoryCourse.id, course)
-          
-        } else if (courseType === 'lab_theory') {
-          // Create lab+theory course (100 mins, 1 session)
-          const labTheoryCourse = await prisma.course.create({
-            data: {
-              sessionId,
-              name: courseName,
-              code: courseCode,
-              timetable: course.timetable || {},
-              classDuration: 100,
-              sessionsPerLecture: 1,
-              totalSessions: 1,
-              scheduledCount: 0
-            }
-          })
-          courseIdMap.set(course.id, labTheoryCourse.id)
-          courseIdMap.set(course.id + '_labtheory', labTheoryCourse.id)
-          stats.courses++
-          
-          // Create theory course (50 mins, 1 session)
-          const theoryCourse = await prisma.course.create({
-            data: {
-              sessionId,
-              name: `${courseName} Theory`,
-              code: `${courseCode}-T`,
-              timetable: {},
-              classDuration: 50,
-              sessionsPerLecture: 1,
-              totalSessions: course.hoursPerWeek - 2,
-              scheduledCount: 0
-            }
-          })
-          courseIdMap.set(course.id + '_theory', theoryCourse.id)
-          stats.courses++
-          
-          // Handle enrollments for both courses
-          if (course.classId) {
-            const newStudentGroupId = studentGroupIdMap.get(course.classId)
-            if (newStudentGroupId) {
-              await prisma.courseStudentGroupEnrollment.create({
-                data: {
-                  courseId: labTheoryCourse.id,
-                  studentGroupId: newStudentGroupId
-                }
-              })
-              await prisma.courseStudentGroupEnrollment.create({
-                data: {
-                  courseId: theoryCourse.id,
-                  studentGroupId: newStudentGroupId
-                }
-              })
-              stats.courseRelations += 2
-            }
-          }
-          
-          // Connect relationships for both courses
-          await connectCourseRelationships(labTheoryCourse.id, course)
-          await connectCourseRelationships(theoryCourse.id, course)
-          
-        } else {
-          // Regular course (theory, mtech_course, etc.)
-          const newCourse = await prisma.course.create({
-            data: {
-              sessionId,
-              name: courseName,
-              code: courseCode,
-              timetable: course.timetable || {},
-              classDuration: course.classDuration || 50,
-              sessionsPerLecture: course.sessionsPerLecture || 1,
-              totalSessions: course.totalSessions || course.hoursPerWeek || 3,
-              scheduledCount: course.scheduledCount || 0
-            }
-          })
-          courseIdMap.set(course.id, newCourse.id)
-          stats.courses++
+        // Enrolled classes as a list. Marauders self-export instead carries them in
+        // embedded studentGroupEnrollments, which connectCourseRelationships wires.
+        const classIds: string[] =
+          Array.isArray(course.classIds) ? course.classIds.filter(Boolean)
+          : course.classId ? [course.classId]
+          : []
 
-          // If course has a classId (old format), create a student group enrollment
-          if (course.classId) {
-            const newStudentGroupId = studentGroupIdMap.get(course.classId)
+        const created: string[] = []
+        const make = async (fields: any) => {
+          const c = await prisma.course.create({
+            data: { sessionId, timetable: course.timetable || {}, scheduledCount: course.scheduledCount || 0, ...fields }
+          })
+          created.push(c.id)
+          stats.courses++
+          for (const classId of classIds) {
+            const newStudentGroupId = studentGroupIdMap.get(classId)
             if (newStudentGroupId) {
-              await prisma.courseStudentGroupEnrollment.create({
-                data: {
-                  courseId: newCourse.id,
-                  studentGroupId: newStudentGroupId
-                }
-              })
+              await prisma.courseStudentGroupEnrollment.create({ data: { courseId: c.id, studentGroupId: newStudentGroupId } })
               stats.courseRelations++
             }
           }
-          
-          // Connect relationships
-          await connectCourseRelationships(newCourse.id, course)
+          await connectCourseRelationships(c.id, course)
         }
+
+        if (courseType === 'lab') {
+          await make({ name: courseName, code: courseCode, classDuration: 150, sessionsPerLecture: 1, totalSessions: 1 })
+          await make({ name: `${courseName} Theory`, code: `${courseCode}-T`, classDuration: 50, sessionsPerLecture: 1, totalSessions: 1 })
+        } else if (courseType === 'lab_theory') {
+          await make({ name: courseName, code: courseCode, classDuration: 100, sessionsPerLecture: 1, totalSessions: 1 })
+          await make({ name: `${courseName} Theory`, code: `${courseCode}-T`, classDuration: 50, sessionsPerLecture: 1, totalSessions: (course.hoursPerWeek || 3) - 2 })
+        } else {
+          await make({ name: courseName, code: courseCode, classDuration: course.classDuration || 50, sessionsPerLecture: course.sessionsPerLecture || 1, totalSessions: course.totalSessions || course.hoursPerWeek || 3 })
+        }
+
+        offeringMap.set(course.id, [...(offeringMap.get(course.id) || []), ...created])
       }
     }
 
-    // Handle old format allocations (faculty-to-course assignments)
+    // Allocations attach a faculty to a course. Since all a course's classes share one
+    // combined session, connect the faculty to that course's variants (lab + theory).
     if (data.allocations && Array.isArray(data.allocations)) {
       for (const alloc of data.allocations) {
         const newFacultyId = facultyIdMap.get(alloc.facultyId)
-        
-        // Get all possible course IDs (main, lab, theory variants)
-        const courseIds = [
-          courseIdMap.get(alloc.courseId),
-          courseIdMap.get(alloc.courseId + '_lab'),
-          courseIdMap.get(alloc.courseId + '_theory'),
-          courseIdMap.get(alloc.courseId + '_labtheory')
-        ].filter(Boolean)
-        
-        if (newFacultyId && courseIds.length > 0) {
-          // Connect faculty to all course variants
-          for (const courseId of courseIds) {
-            await prisma.course.update({
-              where: { id: courseId },
-              data: {
-                compulsoryFaculties: {
-                  connect: { id: newFacultyId }
-                }
-              }
-            })
-            stats.courseRelations++
-          }
+        if (!newFacultyId) continue
+
+        for (const courseId of offeringMap.get(alloc.courseId) || []) {
+          await prisma.course.update({
+            where: { id: courseId },
+            data: { compulsoryFaculties: { connect: { id: newFacultyId } } }
+          })
+          stats.courseRelations++
         }
       }
     }

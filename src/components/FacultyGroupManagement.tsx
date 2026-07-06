@@ -217,11 +217,7 @@ export function FacultyGroupManagement() {
                 onSubmit={handleFormSubmit}
                 onCancel={handleFormCancel}
                 initialData={editingGroup ? {
-                  groupName: editingGroup.groupName,
-                  startHour: editingGroup.startHour,
-                  startMinute: editingGroup.startMinute,
-                  endHour: editingGroup.endHour,
-                  endMinute: editingGroup.endMinute
+                  groupName: editingGroup.groupName
                 } : undefined}
                 isLoading={isSubmitting}
               />

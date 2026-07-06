@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { ApiResponse } from '@/types'
+import { purgeSlotsFromEntities } from '@/lib/timetableCleanup'
 
 // GET /api/student-groups/[id]/members - Get all members of a student group
 export async function GET(
@@ -19,10 +20,6 @@ export async function GET(
           select: {
             id: true,
             digitalId: true,
-            startHour: true,
-            startMinute: true,
-            endHour: true,
-            endMinute: true,
             createdAt: true,
             updatedAt: true
           }
@@ -187,6 +184,35 @@ export async function DELETE(
         studentId: { in: studentIds }
       }
     })
+
+    // Reconcile timetables: a removed student keeps this group's classes in their
+    // own timetable, so drop any class they no longer reach (not directly enrolled
+    // and not a member of another group enrolled in that course).
+    const groupCourses = (await prisma.courseStudentGroupEnrollment.findMany({
+      where: { studentGroupId: id }, select: { courseId: true }
+    })).map(e => e.courseId)
+
+    if (groupCourses.length > 0) {
+      for (const studentId of studentIds) {
+        const [directCourses, memberships] = await Promise.all([
+          prisma.courseStudentEnrollment.findMany({ where: { studentId }, select: { courseId: true } }),
+          prisma.studentGroupMembership.findMany({ where: { studentId }, select: { studentGroupId: true } }),
+        ])
+        const otherGroupCourses = memberships.length
+          ? (await prisma.courseStudentGroupEnrollment.findMany({
+              where: { studentGroupId: { in: memberships.map(m => m.studentGroupId) } }, select: { courseId: true }
+            })).map(e => e.courseId)
+          : []
+        const reachable = new Set([...directCourses.map(e => e.courseId), ...otherGroupCourses])
+        const toRemove = new Set(groupCourses.filter(c => !reachable.has(c)))
+        if (toRemove.size > 0) {
+          await purgeSlotsFromEntities(
+            [{ model: 'student', id: studentId }],
+            (s: any) => s.type === 'course' && toRemove.has(s.courseId)
+          )
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,

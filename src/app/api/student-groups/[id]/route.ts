@@ -68,7 +68,7 @@ export async function PUT(
   try {
     const { id } = await params
     const body = await request.json()
-    const { groupName, startHour, startMinute, endHour, endMinute, timetable } = body
+    const { groupName, timetable } = body
 
     // Check if group exists
     const existingGroup = await prisma.studentGroup.findUnique({
@@ -112,10 +112,6 @@ export async function PUT(
       where: { id },
       data: {
         ...(groupName && { groupName }),
-        ...(startHour !== undefined && { startHour }),
-        ...(startMinute !== undefined && { startMinute }),
-        ...(endHour !== undefined && { endHour }),
-        ...(endMinute !== undefined && { endMinute }),
         ...(timetable && { timetable })
       },
       include: {

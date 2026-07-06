@@ -30,10 +30,6 @@ export function HallGroupList({ groups, onEdit, onDelete, onManageMembers, onVie
     setSortOrder(order)
   }, [searchParams])
 
-  const formatTime = (hour: number, minute: number) => {
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-  }
-
   // Get unique buildings from group members for display
   const getGroupBuildings = (group: HallGroup): string[] => {
     if (!group.hallMemberships) return []
@@ -178,9 +174,6 @@ export function HallGroupList({ groups, onEdit, onDelete, onManageMembers, onVie
                     </div>
                     
                     <div className="text-sm text-gray-600 space-y-1">
-                      <div>
-                        Availability: {formatTime(group.startHour, group.startMinute)} - {formatTime(group.endHour, group.endMinute)}
-                      </div>
                       {buildings.length > 0 && (
                         <div>
                           Buildings: {buildings.join(', ')}

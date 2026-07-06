@@ -1,140 +1,71 @@
 import {
   EntityType,
   ValidationResult,
-  EntityTiming,
   TimetableSlot,
-  SlotFragment,
-  TimeSlot,
-  AvailableSlot,
   DaySchedule,
-  EntityTimetable
+  EntityTimetable,
+  SLOTS_PER_DAY
 } from '@/types'
 
-
-
-// Days of the week
 export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'] as const
 export type DayOfWeek = typeof DAYS_OF_WEEK[number]
 
-// Default slot duration in minutes
-export const DEFAULT_SLOT_DURATION = 50
+export { SLOTS_PER_DAY }
 
-/**
- * Generate time slots based on entity timing constraints
- */
-export function generateTimeSlots(timing: EntityTiming, slotDuration: number = DEFAULT_SLOT_DURATION): TimeSlot[] {
-  const slots: TimeSlot[] = []
-
-  // Convert timing to minutes from midnight
-  const startMinutes = timing.startHour * 60 + timing.startMinute
-  const endMinutes = timing.endHour * 60 + timing.endMinute
-
-  // Generate slots
-  for (let currentMinutes = startMinutes; currentMinutes < endMinutes; currentMinutes += slotDuration) {
-    const hours = Math.floor(currentMinutes / 60)
-    const minutes = currentMinutes % 60
-
-    slots.push({
-      startHour: hours,
-      startMinute: minutes,
-      duration: slotDuration
-    })
-  }
-
-  return slots
-}
-
-/**
- * Initialize empty timetable for an entity
- */
-export function initializeEmptyTimetable(
-  entityId: string,
-  entityType: EntityType
-): EntityTimetable {
+/** Initialize an empty timetable for an entity */
+export function initializeEmptyTimetable(entityId: string, entityType: EntityType): EntityTimetable {
   const schedule: DaySchedule = {}
-
-  // Initialize each day with empty arrays (no free slots anymore)
-  DAYS_OF_WEEK.forEach(day => {
-    schedule[day] = []
-  })
-
-  return {
-    entityId,
-    entityType,
-    schedule,
-    isComplete: false // No longer auto-complete for students
-  }
+  DAYS_OF_WEEK.forEach(day => { schedule[day] = [] })
+  return { entityId, entityType, schedule, isComplete: false }
 }
 
-/**
- * Convert raw timetable data from database to EntityTimetable format
- */
+/** Convert raw DB timetable JSON → EntityTimetable */
 export function convertRawTimetableToEntityTimetable(
   rawTimetable: any,
   entityId: string,
   entityType: EntityType
 ): EntityTimetable {
   const schedule: DaySchedule = {}
+  DAYS_OF_WEEK.forEach(day => { schedule[day] = [] })
 
-  // Initialize all days
-  DAYS_OF_WEEK.forEach(day => {
-    schedule[day] = []
-  })
-
-  // If rawTimetable exists and has data, convert it
   if (rawTimetable && typeof rawTimetable === 'object') {
     DAYS_OF_WEEK.forEach(day => {
       const dayData = rawTimetable[day]
       if (Array.isArray(dayData)) {
         schedule[day] = dayData
-          .map((slot: any) => {
-            // Handle object format (TimetableSlot objects)
-            if (slot && typeof slot === 'object' && 'type' in slot) {
-              return {
-                type: slot.type || 'course',
-                startHour: slot.startHour || 8,
-                startMinute: slot.startMinute || 0,
-                duration: slot.duration || DEFAULT_SLOT_DURATION,
-                courseId: slot.courseId || undefined,
-                courseCode: slot.courseCode || undefined,
-                blockerReason: slot.blockerReason || undefined,
-                hallIds: Array.isArray(slot.hallIds) ? slot.hallIds : [],
-                facultyIds: Array.isArray(slot.facultyIds) ? slot.facultyIds : [],
-                hallGroupIds: Array.isArray(slot.hallGroupIds) ? slot.hallGroupIds : [],
-                facultyGroupIds: Array.isArray(slot.facultyGroupIds) ? slot.facultyGroupIds : [],
-                studentIds: Array.isArray(slot.studentIds) ? slot.studentIds : [],
-                studentGroupIds: Array.isArray(slot.studentGroupIds) ? slot.studentGroupIds : []
-              } as TimetableSlot
+          .map((slot: any): TimetableSlot | null => {
+            if (!slot || typeof slot !== 'object' || !('type' in slot)) return null
+            return {
+              type: slot.type || 'course',
+              slotNumber: slot.slotNumber ?? 0,
+              slotSpan: slot.slotSpan ?? 1,
+              courseId: slot.courseId || undefined,
+              courseCode: slot.courseCode || undefined,
+              blockerReason: slot.blockerReason || undefined,
+              hallIds: Array.isArray(slot.hallIds) ? slot.hallIds : [],
+              facultyIds: Array.isArray(slot.facultyIds) ? slot.facultyIds : [],
+              hallGroupIds: Array.isArray(slot.hallGroupIds) ? slot.hallGroupIds : [],
+              facultyGroupIds: Array.isArray(slot.facultyGroupIds) ? slot.facultyGroupIds : [],
+              studentIds: Array.isArray(slot.studentIds) ? slot.studentIds : [],
+              studentGroupIds: Array.isArray(slot.studentGroupIds) ? slot.studentGroupIds : []
             }
-
-            return null
           })
-          .filter((slot: TimetableSlot | null) => slot !== null) as TimetableSlot[]
+          .filter((s): s is TimetableSlot => s !== null)
       }
     })
   }
 
-  return {
-    entityId,
-    entityType,
-    schedule,
-    isComplete: entityType === EntityType.STUDENT
-  }
+  return { entityId, entityType, schedule, isComplete: false }
 }
 
-/**
- * Convert EntityTimetable back to raw format for database storage
- */
+/** Convert EntityTimetable → raw JSON for DB storage */
 export function convertEntityTimetableToRaw(timetable: EntityTimetable): any {
   const raw: any = {}
-
   DAYS_OF_WEEK.forEach(day => {
-    const daySlots = timetable.schedule[day] || []
-    raw[day] = daySlots.map(slot => ({
+    raw[day] = (timetable.schedule[day] || []).map(slot => ({
       type: slot.type,
-      startHour: slot.startHour,
-      startMinute: slot.startMinute,
-      duration: slot.duration,
+      slotNumber: slot.slotNumber,
+      slotSpan: slot.slotSpan,
       courseId: slot.courseId,
       courseCode: slot.courseCode,
       blockerReason: slot.blockerReason,
@@ -146,314 +77,110 @@ export function convertEntityTimetableToRaw(timetable: EntityTimetable): any {
       studentGroupIds: slot.studentGroupIds || []
     }))
   })
-
   return raw
 }
 
-/**
- * Validate timetable based on entity-specific rules
- */
+/** Get all slot numbers occupied on a given day (accounting for slotSpan) */
+export function getOccupiedSlots(timetable: EntityTimetable, day: DayOfWeek): Set<number> {
+  const occupied = new Set<number>()
+  for (const slot of timetable.schedule[day] || []) {
+    for (let i = 0; i < slot.slotSpan; i++) {
+      occupied.add(slot.slotNumber + i)
+    }
+  }
+  return occupied
+}
+
+/** Get free slot numbers for a day */
+export function getFreeSlots(timetable: EntityTimetable, day: DayOfWeek): number[] {
+  const occupied = getOccupiedSlots(timetable, day)
+  const free: number[] = []
+  for (let i = 0; i < SLOTS_PER_DAY; i++) {
+    if (!occupied.has(i)) free.push(i)
+  }
+  return free
+}
+
+/** Check if a slot range is available (no overlap with existing slots) */
+export function isSlotAvailable(
+  timetable: EntityTimetable,
+  day: DayOfWeek,
+  slotNumber: number,
+  slotSpan: number
+): boolean {
+  const occupied = getOccupiedSlots(timetable, day)
+  for (let i = 0; i < slotSpan; i++) {
+    if (occupied.has(slotNumber + i)) return false
+  }
+  return true
+}
+
+/** Add a slot to a timetable (sorted by slotNumber) */
+export function addSlot(timetable: EntityTimetable, day: DayOfWeek, slot: TimetableSlot): EntityTimetable {
+  const newTimetable = { ...timetable, schedule: { ...timetable.schedule } }
+  newTimetable.schedule[day] = [...(timetable.schedule[day] || []), slot]
+    .sort((a, b) => a.slotNumber - b.slotNumber)
+  return newTimetable
+}
+
+/** Remove a slot by index */
+export function removeSlot(timetable: EntityTimetable, day: DayOfWeek, slotIndex: number): EntityTimetable {
+  const newTimetable = { ...timetable, schedule: { ...timetable.schedule } }
+  newTimetable.schedule[day] = [...(timetable.schedule[day] || [])]
+  if (slotIndex >= 0 && slotIndex < newTimetable.schedule[day].length) {
+    newTimetable.schedule[day].splice(slotIndex, 1)
+  }
+  return newTimetable
+}
+
+/** Get all slots across all days */
+export function getAllSlots(timetable: EntityTimetable): { day: DayOfWeek; slot: TimetableSlot; index: number }[] {
+  const result: { day: DayOfWeek; slot: TimetableSlot; index: number }[] = []
+  DAYS_OF_WEEK.forEach(day => {
+    (timetable.schedule[day] || []).forEach((slot, index) => {
+      result.push({ day, slot, index })
+    })
+  })
+  return result
+}
+
+/** Validate a timetable */
 export function validateTimetable(timetable: EntityTimetable): ValidationResult {
   const errors: string[] = []
   const warnings: string[] = []
 
-  // Check if all days are present
   DAYS_OF_WEEK.forEach(day => {
     if (!timetable.schedule[day]) {
       errors.push(`Missing schedule for ${day}`)
+      return
     }
-  })
 
-  // Entity-specific validation - no longer needed since we don't have free slots
-
-  // Validate slot data integrity
-  DAYS_OF_WEEK.forEach(day => {
-    const daySlots = timetable.schedule[day] || []
-    daySlots.forEach((slot, index) => {
-      if (typeof slot === 'object' && 'type' in slot) {
-        const tSlot = slot as TimetableSlot
-
-        // Validate all slots have required data
-        if (tSlot.startHour === undefined || tSlot.startMinute === undefined) {
-          errors.push(`Slot on ${day}, position ${index + 1} missing start time`)
-        }
-        if (!tSlot.duration || tSlot.duration <= 0) {
-          errors.push(`Slot on ${day}, position ${index + 1} has invalid duration`)
-        }
-
-        // Validate course slots
-        if (tSlot.type === 'course') {
-          if (!tSlot.courseCode && !tSlot.courseId) {
-            warnings.push(`Course slot on ${day}, position ${index + 1} missing course information`)
-          }
-        }
-
-        // Validate blocker slots
-        if (tSlot.type === 'blocker') {
-          if (!tSlot.blockerReason) {
-            warnings.push(`Blocker slot on ${day}, position ${index + 1} missing reason`)
-          }
-        }
-
-        // Validate time format
-        if (tSlot.startHour < 0 || tSlot.startHour > 23) {
-          errors.push(`Invalid start hour "${tSlot.startHour}" on ${day}, position ${index + 1}`)
-        }
-        if (tSlot.startMinute < 0 || tSlot.startMinute > 59) {
-          errors.push(`Invalid start minute "${tSlot.startMinute}" on ${day}, position ${index + 1}`)
-        }
+    const occupied = new Set<number>()
+    for (const slot of timetable.schedule[day]) {
+      if (slot.slotNumber < 0 || slot.slotNumber >= SLOTS_PER_DAY) {
+        errors.push(`Invalid slotNumber ${slot.slotNumber} on ${day}`)
       }
-    })
-  })
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings
-  }
-}
-
-/**
- * Fragment a slot into smaller pieces
- */
-export function fragmentSlot(slot: TimetableSlot, fragments: SlotFragment[]): TimetableSlot[] {
-  if (fragments.length === 0) return [slot]
-
-  const result: TimetableSlot[] = []
-  let currentHour = slot.startHour
-  let currentMinute = slot.startMinute
-  let remainingDuration = slot.duration
-
-  fragments.forEach(fragment => {
-    if (remainingDuration <= 0) return
-
-    const fragmentDuration = Math.min(fragment.duration, remainingDuration)
-
-    result.push({
-      type: fragment.type,
-      startHour: currentHour,
-      startMinute: currentMinute,
-      duration: fragmentDuration,
-      courseId: fragment.courseId || slot.courseId,
-      courseCode: fragment.courseCode || slot.courseCode,
-      blockerReason: fragment.blockerReason || slot.blockerReason,
-      hallIds: fragment.hallIds || slot.hallIds,
-      facultyIds: fragment.facultyIds || slot.facultyIds,
-      hallGroupIds: fragment.hallGroupIds || slot.hallGroupIds,
-      facultyGroupIds: fragment.facultyGroupIds || slot.facultyGroupIds,
-      studentIds: fragment.studentIds || slot.studentIds,
-      studentGroupIds: fragment.studentGroupIds || slot.studentGroupIds
-    })
-
-    // Calculate next start time
-    const totalMinutes = currentHour * 60 + currentMinute + fragmentDuration
-    currentHour = Math.floor(totalMinutes / 60)
-    currentMinute = totalMinutes % 60
-
-    remainingDuration -= fragmentDuration
-  })
-
-  return result
-}
-
-/**
- * Merge consecutive slots into a single slot
- */
-export function mergeSlots(slots: TimetableSlot[]): TimetableSlot {
-  if (slots.length === 0) {
-    throw new Error('Cannot merge empty slot array')
-  }
-
-  if (slots.length === 1) {
-    return slots[0]
-  }
-
-  // Sort slots by start time
-  const sortedSlots = [...slots].sort((a, b) => {
-    const aTime = a.startHour * 60 + a.startMinute
-    const bTime = b.startHour * 60 + b.startMinute
-    return aTime - bTime
-  })
-
-  const firstSlot = sortedSlots[0]
-  const totalDuration = sortedSlots.reduce((sum, slot) => sum + slot.duration, 0)
-
-  return {
-    type: firstSlot.type,
-    startHour: firstSlot.startHour,
-    startMinute: firstSlot.startMinute,
-    duration: totalDuration,
-    courseId: firstSlot.courseId,
-    courseCode: firstSlot.courseCode,
-    blockerReason: firstSlot.blockerReason,
-    hallIds: firstSlot.hallIds,
-    facultyIds: firstSlot.facultyIds,
-    hallGroupIds: firstSlot.hallGroupIds,
-    facultyGroupIds: firstSlot.facultyGroupIds,
-    studentIds: firstSlot.studentIds,
-    studentGroupIds: firstSlot.studentGroupIds
-  }
-}
-
-/**
- * Find available time gaps for scheduling
- */
-export function findAvailableTimeGaps(
-  timetable: EntityTimetable,
-  entityTiming: EntityTiming,
-  requiredDuration: number
-): AvailableSlot[] {
-  const availableSlots: AvailableSlot[] = []
-
-  DAYS_OF_WEEK.forEach(day => {
-    const daySlots = timetable.schedule[day] || []
-
-    // Sort slots by start time
-    const sortedSlots = [...daySlots].sort((a, b) => {
-      const aTime = a.startHour * 60 + a.startMinute
-      const bTime = b.startHour * 60 + b.startMinute
-      return aTime - bTime
-    })
-
-    const dayStartMinutes = entityTiming.startHour * 60 + entityTiming.startMinute
-    const dayEndMinutes = entityTiming.endHour * 60 + entityTiming.endMinute
-
-    let currentTime = dayStartMinutes
-
-    // Check gaps between slots
-    for (const slot of sortedSlots) {
-      const slotStart = slot.startHour * 60 + slot.startMinute
-      const slotEnd = slotStart + slot.duration
-
-      // Check if there's a gap before this slot
-      if (slotStart - currentTime >= requiredDuration) {
-        const gapStart = currentTime
-        const gapDuration = slotStart - currentTime
-
-        availableSlots.push({
-          day,
-          startSlotIndex: 0, // Not applicable for gaps
-          slots: [{
-            type: 'course',
-            startHour: Math.floor(gapStart / 60),
-            startMinute: gapStart % 60,
-            duration: gapDuration
-          }],
-          totalDuration: gapDuration
-        })
+      if (!slot.slotSpan || slot.slotSpan < 1) {
+        errors.push(`Invalid slotSpan on ${day} slot ${slot.slotNumber}`)
       }
-
-      currentTime = Math.max(currentTime, slotEnd)
-    }
-
-    // Check if there's a gap at the end of the day
-    if (dayEndMinutes - currentTime >= requiredDuration) {
-      const gapStart = currentTime
-      const gapDuration = dayEndMinutes - currentTime
-
-      availableSlots.push({
-        day,
-        startSlotIndex: 0, // Not applicable for gaps
-        slots: [{
-          type: 'course',
-          startHour: Math.floor(gapStart / 60),
-          startMinute: gapStart % 60,
-          duration: gapDuration
-        }],
-        totalDuration: gapDuration
-      })
+      if (slot.slotNumber + slot.slotSpan > SLOTS_PER_DAY) {
+        errors.push(`Slot ${slot.slotNumber} with span ${slot.slotSpan} exceeds day boundary on ${day}`)
+      }
+      for (let i = 0; i < slot.slotSpan; i++) {
+        const n = slot.slotNumber + i
+        if (occupied.has(n)) {
+          errors.push(`Overlapping slots at position ${n} on ${day}`)
+        }
+        occupied.add(n)
+      }
+      if (slot.type === 'course' && !slot.courseCode && !slot.courseId) {
+        warnings.push(`Course slot on ${day} slot ${slot.slotNumber} missing course info`)
+      }
+      if (slot.type === 'blocker' && !slot.blockerReason) {
+        warnings.push(`Blocker on ${day} slot ${slot.slotNumber} missing reason`)
+      }
     }
   })
 
-  return availableSlots
-}
-
-/**
- * Check if a specific time period is available
- */
-export function isTimeAvailable(
-  timetable: EntityTimetable,
-  day: DayOfWeek,
-  startHour: number,
-  startMinute: number,
-  duration: number
-): boolean {
-  const daySlots = timetable.schedule[day] || []
-  const requestedStart = startHour * 60 + startMinute
-  const requestedEnd = requestedStart + duration
-
-  // Check if any existing slot conflicts with the requested time
-  for (const slot of daySlots) {
-    const slotStart = slot.startHour * 60 + slot.startMinute
-    const slotEnd = slotStart + slot.duration
-
-    // Check for overlap
-    if (requestedStart < slotEnd && requestedEnd > slotStart) {
-      return false // Conflict found
-    }
-  }
-
-  return true // No conflicts
-}
-
-/**
- * Get all slots from timetable
- */
-export function getAllSlots(timetable: EntityTimetable): { day: DayOfWeek; slot: TimetableSlot; index: number }[] {
-  const allSlots: { day: DayOfWeek; slot: TimetableSlot; index: number }[] = []
-
-  DAYS_OF_WEEK.forEach(day => {
-    const daySlots = timetable.schedule[day] || []
-    daySlots.forEach((slot, index) => {
-      allSlots.push({
-        day,
-        slot,
-        index
-      })
-    })
-  })
-
-  return allSlots
-}
-
-/**
- * Add a new slot to a timetable
- */
-export function addSlot(
-  timetable: EntityTimetable,
-  day: DayOfWeek,
-  slot: TimetableSlot
-): EntityTimetable {
-  const newTimetable = { ...timetable }
-  newTimetable.schedule = { ...timetable.schedule }
-  newTimetable.schedule[day] = [...(timetable.schedule[day] || [])]
-
-  // Add the slot and sort by start time
-  newTimetable.schedule[day].push(slot)
-  newTimetable.schedule[day].sort((a, b) => {
-    const aTime = a.startHour * 60 + a.startMinute
-    const bTime = b.startHour * 60 + b.startMinute
-    return aTime - bTime
-  })
-
-  return newTimetable
-}
-
-/**
- * Remove a slot from a timetable
- */
-export function removeSlot(
-  timetable: EntityTimetable,
-  day: DayOfWeek,
-  slotIndex: number
-): EntityTimetable {
-  const newTimetable = { ...timetable }
-  newTimetable.schedule = { ...timetable.schedule }
-  newTimetable.schedule[day] = [...(timetable.schedule[day] || [])]
-
-  if (slotIndex >= 0 && slotIndex < newTimetable.schedule[day].length) {
-    newTimetable.schedule[day].splice(slotIndex, 1)
-  }
-
-  return newTimetable
+  return { isValid: errors.length === 0, errors, warnings }
 }

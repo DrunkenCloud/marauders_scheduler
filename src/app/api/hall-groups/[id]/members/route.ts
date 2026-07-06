@@ -22,10 +22,6 @@ export async function GET(
             Floor: true,
             Building: true,
             shortForm: true,
-            startHour: true,
-            startMinute: true,
-            endHour: true,
-            endMinute: true,
             createdAt: true,
             updatedAt: true
           }

@@ -30,10 +30,6 @@ export function StudentGroupList({ groups, onEdit, onDelete, onManageMembers, on
     setSortOrder(order)
   }, [searchParams])
 
-  const formatTime = (hour: number, minute: number) => {
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-  }
-
   const filteredAndSortedGroups = groups
     .filter(group =>
       group.groupName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -169,9 +165,6 @@ export function StudentGroupList({ groups, onEdit, onDelete, onManageMembers, on
                   </div>
                   
                   <div className="text-sm text-gray-600 space-y-1">
-                    <div>
-                      Working Hours: {formatTime(group.startHour, group.startMinute)} - {formatTime(group.endHour, group.endMinute)}
-                    </div>
                     <div>
                       Created: {new Date(group.createdAt).toLocaleDateString()}
                     </div>

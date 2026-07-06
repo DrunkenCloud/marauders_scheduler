@@ -172,9 +172,6 @@ export default function StudentList({ onStudentSelect, onCreateNew, onManageTime
                         Digital ID
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Working Hours
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Groups
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -191,11 +188,6 @@ export default function StudentList({ onStudentSelect, onCreateNew, onManageTime
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             {student.digitalId}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {student.startHour.toString().padStart(2, '0')}:{student.startMinute.toString().padStart(2, '0')} - {student.endHour.toString().padStart(2, '0')}:{student.endMinute.toString().padStart(2, '0')}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

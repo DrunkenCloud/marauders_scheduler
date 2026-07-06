@@ -112,12 +112,6 @@ export default function CourseManagement() {
                   console.log('Converted timetable:', converted)
                   return converted
                 })()}
-                entityTiming={{
-                  startHour: 8,
-                  startMinute: 0,
-                  endHour: 18,
-                  endMinute: 0
-                }}
                 onSave={handleTimetableSave}
                 onCancel={handleCancel}
                 readOnly={true}

@@ -717,10 +717,10 @@ export default function CourseScheduling() {
                         Day
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Time
+                        Slot
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Duration
+                        Span
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Entities
@@ -730,27 +730,13 @@ export default function CourseScheduling() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {scheduledSlots
                       .sort((a, b) => {
-                        // First sort by day (Monday to Friday)
                         const dayOrder = { 'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4 }
                         const dayDiff = (dayOrder[a.day as keyof typeof dayOrder] || 5) - (dayOrder[b.day as keyof typeof dayOrder] || 5)
-                        if (dayDiff <= 0) return 0;
-
-                        // Then sort by time (hour and minute)
-                        const aTime = a.startHour * 60 + a.startMinute
-                        const bTime = b.startHour * 60 + b.startMinute
-                        if (aTime !== bTime) return aTime - bTime
-
-                        // Then sort by duration (longer sessions first)
-                        if (a.duration !== b.duration) return b.duration - a.duration
-
-                        // Finally sort by course code for consistency
+                        if (dayDiff !== 0) return dayDiff
+                        if (a.slotNumber !== b.slotNumber) return a.slotNumber - b.slotNumber
                         return (a.courseCode || '').localeCompare(b.courseCode || '')
                       })
                       .map((slot, index) => {
-                        const startTime = `${slot.startHour.toString().padStart(2, '0')}:${slot.startMinute.toString().padStart(2, '0')}`
-                        const endMinutes = slot.startHour * 60 + slot.startMinute + slot.duration
-                        const endTime = `${Math.floor(endMinutes / 60).toString().padStart(2, '0')}:${(endMinutes % 60).toString().padStart(2, '0')}`
-
                         const totalEntities = (slot.studentIds?.length || 0) +
                           (slot.facultyIds?.length || 0) +
                           (slot.hallIds?.length || 0) +
@@ -758,7 +744,6 @@ export default function CourseScheduling() {
                           (slot.facultyGroupIds?.length || 0) +
                           (slot.hallGroupIds?.length || 0)
 
-                        // Check if this is the first slot of a new day
                         const isFirstOfDay = index === 0 || scheduledSlots[index - 1]?.day !== slot.day
 
                         return (
@@ -772,10 +757,10 @@ export default function CourseScheduling() {
                               </div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="text-sm text-gray-900 font-mono">{startTime} - {endTime}</div>
+                              <div className="text-sm text-gray-900 font-mono">Slot {slot.slotNumber + 1}</div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{slot.duration} min</div>
+                              <div className="text-sm text-gray-900">{slot.slotSpan} slot{slot.slotSpan !== 1 ? 's' : ''}</div>
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap">
                               <div className="text-sm text-gray-500">{totalEntities} entities</div>

@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { groupName, sessionId, startHour, startMinute, endHour, endMinute } = body
+    const { groupName, sessionId } = body
 
     if (!groupName || !sessionId) {
       return NextResponse.json({
@@ -117,11 +117,7 @@ export async function POST(request: NextRequest) {
       data: {
         groupName,
         sessionId: sessionId,
-        timetable: emptyTimetable,
-        startHour: startHour || 8,
-        startMinute: startMinute || 10,
-        endHour: endHour || 20,
-        endMinute: endMinute || 0
+        timetable: emptyTimetable
       },
       include: {
         _count: {

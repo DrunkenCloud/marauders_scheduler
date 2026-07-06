@@ -63,10 +63,6 @@ export function HallGroupMemberManager({
     }
   }
 
-  const formatTime = (hour: number, minute: number) => {
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-  }
-
   const handleAddMembers = async () => {
     if (selectedHalls.length === 0) return
 
@@ -288,8 +284,7 @@ export function HallGroupMemberManager({
                           )}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {member.hall.Building}, Floor {member.hall.Floor} • 
-                          Available: {formatTime(member.hall.startHour, member.hall.startMinute)} - {formatTime(member.hall.endHour, member.hall.endMinute)}
+                          {member.hall.Building}, Floor {member.hall.Floor}
                         </div>
                       </div>
                       <div className="text-sm text-gray-500">
@@ -347,8 +342,7 @@ export function HallGroupMemberManager({
                           )}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {hall.Building}, Floor {hall.Floor} • 
-                          Available: {formatTime(hall.startHour, hall.startMinute)} - {formatTime(hall.endHour, hall.endMinute)}
+                          {hall.Building}, Floor {hall.Floor}
                         </div>
                       </div>
                     </div>

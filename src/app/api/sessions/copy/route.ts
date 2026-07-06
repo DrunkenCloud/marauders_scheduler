@@ -118,10 +118,6 @@ export async function POST(request: NextRequest) {
           data: {
             digitalId: student.digitalId,
             timetable: student.timetable as any,
-            startHour: student.startHour,
-            startMinute: student.startMinute,
-            endHour: student.endHour,
-            endMinute: student.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -143,10 +139,6 @@ export async function POST(request: NextRequest) {
             name: faculty.name,
             shortForm: faculty.shortForm,
             timetable: faculty.timetable as any,
-            startHour: faculty.startHour,
-            startMinute: faculty.startMinute,
-            endHour: faculty.endHour,
-            endMinute: faculty.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -170,10 +162,6 @@ export async function POST(request: NextRequest) {
             Building: hall.Building,
             shortForm: hall.shortForm,
             timetable: hall.timetable as any,
-            startHour: hall.startHour,
-            startMinute: hall.startMinute,
-            endHour: hall.endHour,
-            endMinute: hall.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -252,10 +240,6 @@ export async function POST(request: NextRequest) {
           data: {
             groupName: group.groupName,
             timetable: group.timetable as any,
-            startHour: group.startHour,
-            startMinute: group.startMinute,
-            endHour: group.endHour,
-            endMinute: group.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -290,10 +274,6 @@ export async function POST(request: NextRequest) {
           data: {
             groupName: group.groupName,
             timetable: group.timetable as any,
-            startHour: group.startHour,
-            startMinute: group.startMinute,
-            endHour: group.endHour,
-            endMinute: group.endMinute,
             sessionId: targetSessionId
           }
         })
@@ -327,10 +307,6 @@ export async function POST(request: NextRequest) {
           data: {
             groupName: group.groupName,
             timetable: group.timetable as any,
-            startHour: group.startHour,
-            startMinute: group.startMinute,
-            endHour: group.endHour,
-            endMinute: group.endMinute,
             sessionId: targetSessionId
           }
         })

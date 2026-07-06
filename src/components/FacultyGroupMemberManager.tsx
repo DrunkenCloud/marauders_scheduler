@@ -63,9 +63,7 @@ export function FacultyGroupMemberManager({
     }
   }
 
-  const formatTime = (hour: number, minute: number) => {
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`
-  }
+  
 
   const handleAddMembers = async () => {
     if (selectedFaculty.length === 0) return
@@ -258,9 +256,6 @@ export function FacultyGroupMemberManager({
                             <span className="text-gray-500 ml-2">({member.faculty.shortForm})</span>
                           )}
                         </div>
-                        <div className="text-sm text-gray-600">
-                          Working Hours: {formatTime(member.faculty.startHour, member.faculty.startMinute)} - {formatTime(member.faculty.endHour, member.faculty.endMinute)}
-                        </div>
                       </div>
                       <div className="text-sm text-gray-500">
                         Added: {new Date(member.createdAt).toLocaleDateString()}
@@ -315,9 +310,6 @@ export function FacultyGroupMemberManager({
                           {faculty.shortForm && (
                             <span className="text-gray-500 ml-2">({faculty.shortForm})</span>
                           )}
-                        </div>
-                        <div className="text-sm text-gray-600">
-                          Working Hours: {formatTime(faculty.startHour, faculty.startMinute)} - {formatTime(faculty.endHour, faculty.endMinute)}
                         </div>
                       </div>
                     </div>
