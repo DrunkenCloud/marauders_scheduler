@@ -12,6 +12,7 @@ export default function ImportExportPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [importStats, setImportStats] = useState<any>(null)
+  const [mergeFiles, setMergeFiles] = useState<{ fileName: string, sessionName: string, counts: Record<string, number>, data: any }[]>([])
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
   const handleImport = async () => {
     if (!currentSession) {
@@ -88,6 +89,68 @@ export default function ImportExportPage() {
       setJsonInput(content)
     }
     reader.readAsText(file)
+  }
+
+  const handleMergeFilesSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    e.target.value = '' // allow re-selecting the same file later
+    if (!files.length) return
+
+    const parsed: typeof mergeFiles = []
+    for (const f of files) {
+      try {
+        const data = JSON.parse(await f.text())
+        parsed.push({
+          fileName: f.name,
+          sessionName: data.session?.name || '(no session name)',
+          counts: {
+            faculty: (data.faculty || []).length,
+            courses: (data.courses || []).length,
+            classes: (data.studentGroups || data.classes || []).length,
+            students: (data.students || []).length,
+            allocations: (data.allocations || []).length,
+          },
+          data,
+        })
+      } catch {
+        setMessage({ type: 'error', text: `${f.name}: not valid JSON` })
+        return
+      }
+    }
+    setMergeFiles(prev => [...prev, ...parsed])
+    setMessage(null)
+  }
+
+  const removeMergeFile = (idx: number) => setMergeFiles(prev => prev.filter((_, i) => i !== idx))
+
+  const handleMergeImport = async () => {
+    if (!currentSession) {
+      setMessage({ type: 'error', text: 'No active session selected' })
+      return
+    }
+    if (!mergeFiles.length) return
+
+    try {
+      setImporting(true)
+      setMessage(null)
+      setImportStats(null)
+
+      const response = await fetch(`${basePath}/api/import-sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: currentSession.id, files: mergeFiles.map(f => f.data) })
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Import failed')
+
+      setImportStats(result.stats)
+      setMessage({ type: 'success', text: `Merged ${mergeFiles.length} file(s) into ${currentSession.name}!` })
+      setMergeFiles([])
+    } catch (error: any) {
+      setMessage({ type: 'error', text: error.message || 'Failed to import data' })
+    } finally {
+      setImporting(false)
+    }
   }
 
   const handleDownload = () => {
@@ -202,6 +265,46 @@ export default function ImportExportPage() {
             </div>
           </div>
         )}
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Merge Multiple Sessions</h2>
+          <p className="text-sm text-gray-600 mb-4">
+            Load several exported JSON files. Shared entities (faculty, classes, students, groups) are
+            deduped by id across files; courses are kept separate. Everything imports into the current session.
+          </p>
+
+          <label className="inline-block px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 cursor-pointer">
+            Choose Files
+            <input type="file" accept=".json" multiple onChange={handleMergeFilesSelect} className="hidden" />
+          </label>
+
+          {mergeFiles.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {mergeFiles.map((f, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 border border-gray-200 rounded-md px-3 py-2 text-sm">
+                  <div className="min-w-0">
+                    <div className="font-medium text-gray-900 truncate">{f.sessionName}</div>
+                    <div className="text-gray-500 truncate">{f.fileName}</div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className="text-gray-600 whitespace-nowrap">
+                      {f.counts.faculty} faculty · {f.counts.courses} courses · {f.counts.classes} classes · {f.counts.allocations} alloc
+                    </span>
+                    <button onClick={() => removeMergeFile(i)} className="text-red-600 hover:text-red-800">Remove</button>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                onClick={handleMergeImport}
+                disabled={!currentSession || importing}
+                className="w-full mt-2 px-4 py-3 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+              >
+                {importing ? 'Importing...' : `Import ${mergeFiles.length} file${mergeFiles.length > 1 ? 's' : ''} into ${currentSession?.name ?? 'session'}`}
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex gap-4 mb-4">
