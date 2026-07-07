@@ -65,7 +65,7 @@ async function main() {
   assert.strictEqual(labCourses.length, 2, 'lab should split into practical + theory')
   for (const lc of labCourses) {
     assert.deepStrictEqual(fac(lc), ['Prof Z'], `${lc.code} faculty should be [Z]`)
-    assert(groups(lc).some(g => g.includes('IoT')), `${lc.code} should enrol IoT`)
+    assert(groups(lc).some((g: string) => g.includes('IoT')), `${lc.code} should enrol IoT`)
   }
   console.log('✓ lab split (CS201L + CS201L-T) both enrol IoT and Prof Z')
 
